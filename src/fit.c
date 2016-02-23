@@ -55,6 +55,7 @@ void eval_poly(float *param, float *sample, int param_cnt, int sample_cnt, void 
   // fill params into poly
   poly_system_set_coeffs(tmp->poly, max_degree, param);
 
+#pragma omp parallel for default(shared)
   for(int s=0;s<sample_cnt/4;s++)
   {
     const float *in = tmp->sample_in + 5*s;
@@ -160,6 +161,7 @@ int main(int argc, char *arg[])
   char fitfile[2048];
   snprintf(fitfile, 2048, "%s.fit", lensfilename);
   poly_system_simplify(&poly);
+  fprintf(stderr, "output poly has %d coeffs.\n", poly_system_get_coeffs(&poly, user_degree, 0));
   poly_system_write(&poly, fitfile);
 
   // ===================================================================================================
@@ -202,6 +204,7 @@ int main(int argc, char *arg[])
 
   snprintf(fitfile, 2048, "%s_ap.fit", lensfilename);
   poly_system_simplify(&poly_ap);
+  fprintf(stderr, "output aperture poly has %d coeffs.\n", poly_system_get_coeffs(&poly_ap, user_degree, 0));
   poly_system_write(&poly_ap, fitfile);
   exit(0);
 }
