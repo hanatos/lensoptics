@@ -1,8 +1,7 @@
-// TAKAYUKI ITOH; USP 4,196,968; WIDE ANGLE ZOOM - EFL=100-145
+# TAKAYUKI ITOH; USP 4,196,968; WIDE ANGLE ZOOM - EFL=100-145
 #EFL		100	123	146				// effective focal length
 #FOV		50.477	44.04	37.61	// diagonal FOV
-
-// radius	thickness(/:var)	matl		index	vno		sa		ry(opt)
+# radius	thickness(/:var)	matl		index	vno		sa		ry(opt)
 296.140		14.220				abbe    	1.589	61.2	82.0
 914.140		0.410				air							82.0
 187.780		4.880				abbe		1.806	40.9	75.0

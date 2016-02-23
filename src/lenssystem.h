@@ -57,12 +57,12 @@ int lens_configuration(lens_element_t *l, const char *filename, int max)
     lens.thickness_short = strtof(in, &in);
     while(in[0] == '\t' || in[0] == ' ') in++;
     if(in[0] == '/')
-      lens.thickness_mid = strtof(in, &in);
+      lens.thickness_mid = strtof(in+1, &in);
     else
       lens.thickness_mid = lens.thickness_short;
     while(in[0] == '\t' || in[0] == ' ') in++;
     if(in[0] == '/')
-      lens.thickness_long = strtof(in, &in);
+      lens.thickness_long = strtof(in+1, &in);
     else
       lens.thickness_long = lens.thickness_short;
     if(lens.thickness_short == 0.0f) break;

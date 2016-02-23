@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-std=c11 -Wall -g -Iext/levmar-2.6 -D_GNU_SOURCE
-OPTFLAGS=-I. -ggdb3 -Isrc/
-#OPTFLAGS=-O3 -ffast-math -mfpmath=sse -march=native -fexpensive-optimizations -DNDEBUG -fno-finite-math-only -I. -Isrc/
+# OPTFLAGS=-I. -ggdb3 -Isrc/
+OPTFLAGS=-O3 -ffast-math -mfpmath=sse -march=native -fexpensive-optimizations -DNDEBUG -fno-finite-math-only -I. -Isrc/
 LD_LEVMAR=ext/levmar-2.6/liblevmar.a -llapack -lblas
 LDFLAGS=-lm
 

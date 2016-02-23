@@ -53,8 +53,7 @@ void eval_poly(float *param, float *sample, int param_cnt, int sample_cnt, void 
   }
 
   // fill params into poly
-  int set = poly_system_set_coeffs(tmp->poly, max_degree, param);
-  assert(set == param_cnt);
+  poly_system_set_coeffs(tmp->poly, max_degree, param);
 
   for(int s=0;s<sample_cnt/4;s++)
   {
