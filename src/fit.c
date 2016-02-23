@@ -204,6 +204,7 @@ int main(int argc, char *arg[])
 
   snprintf(fitfile, 2048, "%s_ap.fit", lensfilename);
   poly_system_simplify(&poly_ap);
+  // TODO: this totally doesn't throw away useless coeffs, the fitter will make ineffective ones != 0!
   fprintf(stderr, "output aperture poly has %d coeffs.\n", poly_system_get_coeffs(&poly_ap, user_degree, 0));
   poly_system_write(&poly_ap, fitfile);
   exit(0);

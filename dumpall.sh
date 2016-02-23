@@ -6,7 +6,7 @@ do
   lens1=${i#*/}
   lens=${lens1%.*}
   echo '[' $lens ']'
-# ./fit $i
+  ./fit $i
 #  ./dump-code $i >& /dev/null
   ./view $i -o
   mv screenshot.pdf lenses/${lens}.pdf
