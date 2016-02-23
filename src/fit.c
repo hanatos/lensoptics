@@ -138,10 +138,10 @@ int main(int argc, char *arg[])
   tmp.sample_in = sample_in;
   float opts[LM_OPTS_SZ], info[LM_INFO_SZ];
   // opts[0]=LM_INIT_MU; opts[1]=1E-3; opts[2]=1E-5; opts[3]=1E-7; // terminates way to early
-  // opts[0]=LM_INIT_MU; opts[1]=1E-7; opts[2]=1E-7; opts[3]=1E-12; // known to go through
+  opts[0]=LM_INIT_MU; opts[1]=1E-7; opts[2]=1E-7; opts[3]=1E-12; // known to go through
   /// opts[0]=1e-2f; opts[1]=1E-7; opts[2]=1E-7; opts[3]=1E-12; // known to go through
   // opts[0]=LM_INIT_MU; opts[1]=1E-7; opts[2]=1E-8; opts[3]=1E-13; // goes through, some nans
-  opts[0] = LM_INIT_MU; opts[1]=1E-8; opts[2]=1E-8; opts[3]=1E-15;
+  // opts[0] = LM_INIT_MU; opts[1]=1E-8; opts[2]=1E-8; opts[3]=1E-15;
   opts[4] = LM_DIFF_DELTA;
   tmp.reference = sample;
   tmp.poly = &poly;

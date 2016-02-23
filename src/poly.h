@@ -195,7 +195,7 @@ int poly_system_write(poly_system_t *s, const char *filename)
 int poly_system_get_coeffs(const poly_system_t *s, const int max_degree, float *coeff)
 {
   int cnt = 0;
-  for(int j=0;j<poly_num_vars;j++)
+  for(int j=0;j<poly_num_vars-1;j++) // don't dump lambda == lambda
   {
     for(int t=0;t<s->poly[j].num_terms;t++)
     {
@@ -218,7 +218,7 @@ int poly_system_get_coeffs(const poly_system_t *s, const int max_degree, float *
 int poly_system_set_coeffs(poly_system_t *s, const int max_degree, const float *coeff)
 {
   int cnt = 0;
-  for(int j=0;j<poly_num_vars;j++)
+  for(int j=0;j<poly_num_vars-1;j++) // don't dump lambda = lambda poly
   {
     for(int t=0;t<s->poly[j].num_terms;t++)
     {
