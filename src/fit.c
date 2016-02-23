@@ -197,7 +197,7 @@ int main(int argc, char *arg[])
   {
     const int degree_coeff_size = poly_system_get_coeffs(&poly_ap, max_degree, 0);
     slevmar_dif(eval_poly, coeff, sample, degree_coeff_size, valid*4, 1000, opts, info, NULL, NULL, &tmp);
-    fprintf(stderr, "degree %d has %d samples fitting error %g\n", degree_coeff_size, max_degree, info[1]);
+    fprintf(stderr, "degree %d has %d samples fitting error %g\n", max_degree, degree_coeff_size, info[1]);
   }
 
   snprintf(fitfile, 2048, "%s_ap.fit", lensfilename);
