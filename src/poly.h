@@ -50,7 +50,8 @@ float poly_pow(const float x, const int32_t exp)
 // evaluate the term at point x.
 float poly_term_evaluate(const poly_term_t *t, const float *x)
 {
-  if(t->coeff == 0.0f) return 0.0f;
+  // if(t->coeff == 0.0f) return 0.0f;
+  if(fabsf(t->coeff) < poly_coeff_eps) return 0.0f;
   float out = t->coeff;
   for(int k=0;k<poly_num_vars;k++)
     out *= poly_pow(x[k], t->exp[k]);
@@ -95,7 +96,13 @@ void poly_copy(const poly_t *p, poly_t *p2)
 {
   p2->num_terms = p->num_terms;
   p2->term = (poly_term_t *)malloc(sizeof(poly_term_t)*p->num_terms);
-  memcpy(p->term, p2->term, sizeof(poly_term_t)*p->num_terms);
+  memcpy(p2->term, p->term, sizeof(poly_term_t)*p->num_terms);
+}
+
+void poly_system_copy(const poly_system_t *s, poly_system_t *s2)
+{
+  for(int k=0;k<poly_num_vars;k++)
+    poly_copy(s->poly+k, s2->poly+k);
 }
 
 void poly_get_derivative(const poly_t *poly, poly_t *deriv, const int *dx)
@@ -133,6 +140,7 @@ void poly_system_get_jacobian(const poly_system_t *s, poly_jacobian_t *jac)
 
 void poly_print(const poly_t *p, const char *vname[poly_num_vars], FILE *f)
 {
+  static const char *vn[poly_num_vars] = {"x0", "x1", "x2", "x3", "x4"};
   for(int t=0;t<p->num_terms;t++)
   {
     if(fabsf(p->term[t].coeff) > poly_coeff_eps)
@@ -140,9 +148,9 @@ void poly_print(const poly_t *p, const char *vname[poly_num_vars], FILE *f)
       fprintf(f, " + %g ", p->term[t].coeff);
       for(int k=0;k<poly_num_vars;k++)
         if(p->term[t].exp[k] == 1)
-          fprintf(f, "*%s", vname[k]);
+          fprintf(f, "*%s", vname ? vname[k] : vn[k]);
         else if(p->term[t].exp[k] > 0)
-          fprintf(f, "*ipow(%s, %d)", vname[k], p->term[t].exp[k]);
+          fprintf(f, "*ipow(%s, %d)", vname ? vname[k] : vn[k], p->term[t].exp[k]);
     }
   }
 }

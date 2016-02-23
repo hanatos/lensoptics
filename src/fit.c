@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <float.h>
 #include <assert.h>
 # define M_PI   3.14159265358979323846  /* pi */
 
@@ -149,20 +150,29 @@ int main(int argc, char *arg[])
   // ===================================================================================================
   // evaluate poly sensor -> outer pupil
   // ===================================================================================================
+  float last_error = FLT_MAX;
+  poly_system_t poly_backup = {0};
   for(max_degree=3;max_degree <= user_degree; max_degree++)
   {
     const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
     // optimize taylor polynomial a bit
     slevmar_dif(eval_poly, coeff, sample, degree_coeff_size, valid*4, 1000, opts, info, NULL, NULL, &tmp);
     fprintf(stderr, "degree %d has %d samples, fitting error %g\n", max_degree, degree_coeff_size, info[1]);
+    if(info[1] >= 0.0f && info[1] < last_error)
+    {
+      poly_system_destroy(&poly_backup);
+      poly_system_copy(&poly, &poly_backup);
+      last_error = info[1];
+    }
+    else break;
   }
 
   // write optimised poly
   char fitfile[2048];
   snprintf(fitfile, 2048, "%s.fit", lensfilename);
-  poly_system_simplify(&poly);
-  fprintf(stderr, "output poly has %d coeffs.\n", poly_system_get_coeffs(&poly, user_degree, 0));
-  poly_system_write(&poly, fitfile);
+  poly_system_simplify(&poly_backup);
+  fprintf(stderr, "output poly has %d coeffs.\n", poly_system_get_coeffs(&poly_backup, user_degree, 0));
+  poly_system_write(&poly_backup, fitfile);
 
   // ===================================================================================================
   // evaluate_aperture poly sensor -> aperture
@@ -195,17 +205,25 @@ int main(int argc, char *arg[])
 
   tmp.poly = &poly_ap;
 
-  for(max_degree=3;max_degree <= user_degree; max_degree++)
+  last_error = FLT_MAX;
+  for(max_degree=1;max_degree <= user_degree; max_degree++)
   {
     const int degree_coeff_size = poly_system_get_coeffs(&poly_ap, max_degree, 0);
     slevmar_dif(eval_poly, coeff, sample, degree_coeff_size, valid*4, 1000, opts, info, NULL, NULL, &tmp);
     fprintf(stderr, "degree %d has %d samples fitting error %g\n", max_degree, degree_coeff_size, info[1]);
+    if(info[1] >= 0.0f && info[1] < last_error)
+    {
+      last_error = info[1];
+      poly_system_destroy(&poly_backup);
+      poly_system_copy(&poly_ap, &poly_backup);
+    }
+    else break;
   }
 
   snprintf(fitfile, 2048, "%s_ap.fit", lensfilename);
-  poly_system_simplify(&poly_ap);
+  poly_system_simplify(&poly_backup);
   // TODO: this totally doesn't throw away useless coeffs, the fitter will make ineffective ones != 0!
-  fprintf(stderr, "output aperture poly has %d coeffs.\n", poly_system_get_coeffs(&poly_ap, user_degree, 0));
-  poly_system_write(&poly_ap, fitfile);
+  fprintf(stderr, "output aperture poly has %d coeffs.\n", poly_system_get_coeffs(&poly_backup, user_degree, 0));
+  poly_system_write(&poly_backup, fitfile);
   exit(0);
 }
