@@ -1,7 +1,6 @@
 
 #ifndef GENCODE_H
 #define GENCODE_H
-#include "raytrace.h"
 #include "poly.h"
 
 void print_poly_system_code(FILE *f, const poly_system_t *system, const char *vname[poly_num_vars])
