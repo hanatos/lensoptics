@@ -50,11 +50,11 @@ int main(int argc, char **argv)
   print_jacobian(f, &poly_ap, varnames);
   fclose(f);
 
-  f = fopen("pt_sample_ap.h", "wb");
+  f = fopen("pt_sample_aperture.h", "wb");
   print_solve_omega(f, &poly_ap, varnames);
   fclose(f);
 
-  f = fopen("lt_sample_ap.h", "wb");
+  f = fopen("lt_sample_aperture.h", "wb");
   print_connect(f, &poly, &poly_ap, varnames);
   fclose(f);
 
