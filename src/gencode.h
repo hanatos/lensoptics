@@ -1,6 +1,4 @@
-
-#ifndef GENCODE_H
-#define GENCODE_H
+#pragma once
 #include "poly.h"
 
 void print_poly_system_code(FILE *f, const poly_system_t *system, const char *vname[poly_num_vars])
@@ -19,7 +17,7 @@ void print_jacobian(FILE *f, const poly_system_t *system, const char *vname[poly
   poly_jacobian_t jacobian;
   poly_system_get_jacobian(system, &jacobian);
   for(int i = 0; i < poly_num_vars-1; i++)
-    for(int j = 0; j < poly_num_vars-1; j++)
+    for(int j = 0; j < poly_num_vars; j++)
     {
       fprintf(f, "const float dx%d%d = ", i, j);
       poly_print(&jacobian.poly[i*poly_num_vars+j], vname, f);
@@ -193,7 +191,7 @@ void print_connect(FILE *f, const poly_system_t *system, const poly_system_t *ap
     fprintf(f, "%s", k<4?",\n":"\n  };\n");
   }
   fprintf(f, "  float pred_out_ws[7] = {0.0f};\n");
-  fprintf(f, "  sphereToCs(pred_out, pred_out+2, pred_out_ws, pred_out_ws+3, lens_length - lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);\n");
+  fprintf(f, "  lens_sphereToCs(pred_out, pred_out+2, pred_out_ws, pred_out_ws+3, lens_length - lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);\n");
   fprintf(f, "  float view[3] =\n  {\n");
   fprintf(f, "    scene_x - pred_out_ws[0],\n");
   fprintf(f, "    scene_y - pred_out_ws[1],\n");
@@ -202,7 +200,7 @@ void print_connect(FILE *f, const poly_system_t *system, const poly_system_t *ap
 
   fprintf(f, "  float out_new[5];\n");
   //Position is just converted back, direction gets replaced with new one
-  fprintf(f, "  csToSphere(pred_out_ws, view, out_new, out_new+2, lens_length - lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);\n");
+  fprintf(f, "  lens_csToSphere(pred_out_ws, view, out_new, out_new+2, lens_length - lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);\n");
 
   //Calculate error vector (out_new - pred_out)[dx,dy]
   fprintf(f, "  const float delta_out[] = {out_new[2] - pred_out[2], out_new[3] - pred_out[3]};\n");
@@ -238,6 +236,3 @@ void print_connect(FILE *f, const poly_system_t *system, const poly_system_t *ap
   fprintf(f, "}\n");
   for(int k=0;k<poly_num_vars;k++) free(begin_var[k]);
 }
-
-
-#endif
