@@ -10,11 +10,12 @@ src/lenssystem.h\
 src/poly.h\
 src/raytrace_draw.h\
 src/raytrace.h\
+src/gencode.h\
 src/spectrum.h
 
 .PHONY=all clean
 
-all: view fit
+all: view fit gencode
 
 view: Makefile src/view.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/view.c $(shell pkg-config --cflags --libs gtk+-2.0) ${LDFLAGS} -o view ${LDFLAGS}
@@ -25,5 +26,8 @@ ext/levmar-2.6/liblevmar.a:
 fit: Makefile src/fit.c ${HEADERS} ext/levmar-2.6/liblevmar.a
 	${CC} ${OPTFLAGS} ${CFLAGS} src/fit.c -o fit ${LDFLAGS} ${LD_LEVMAR}
 
+gencode: Makefile src/gencode.c ${HEADERS}
+	${CC} ${OPTFLAGS} ${CFLAGS} src/gencode.c -o gencode ${LDFLAGS}
+
 clean:
-	rm -f view fit
+	rm -f view fit gencode

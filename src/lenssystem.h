@@ -30,6 +30,18 @@ float lens_get_aperture_radius(lens_element_t *l, int num)
   return 0.0f;
 }
 
+float lens_get_aperture_pos(lens_element_t *l, int num, float zoom)
+{
+  float pos = 0;
+  int k = 0;
+  while(strcasecmp(l[k].material, "iris") && k < num)
+  {
+      pos += lens_get_thickness(l+k, zoom);
+      k++;
+  }
+  return pos;
+}
+
 int lens_configuration(lens_element_t *l, const char *filename, int max)
 {
   FILE *f = fopen(filename, "rb");
