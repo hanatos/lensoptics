@@ -39,7 +39,8 @@ void print_solve_omega(FILE *f, const poly_system_t *system, const char *vname[p
   // float sqr_err = 0.0f;
   for(int k=0;k<4;k++)
     fprintf(f, "float pred_%s;\n", vname[k]);
-  fprintf(f, "for(int k=0;k<4;k++)\n{\n");
+  fprintf(f, "float sqr_err = FLT_MAX;\n");
+  fprintf(f, "for(int k=0;k<5&&sqr_err > 1e-4f;k++)\n{\n");
 
   // 1.5) compute input to the polynomial, begin_[x,y,dx,dy] from our initial guess and the distance:
   fprintf(f, "  const float %s = %s + dist * %s;\n", begin_var[0], vname[0], vname[2]);
@@ -66,6 +67,8 @@ void print_solve_omega(FILE *f, const poly_system_t *system, const char *vname[p
     poly_print(&sysjac.poly[i*poly_num_vars+j+2], (const char**)begin_var, f);
     fprintf(f, "+0.0f;\n");
   }
+  for(int k=0;k<poly_num_vars*poly_num_vars;k++)
+    poly_destroy(sysjac.poly+k);
 
   // 4) invert jacobian (could use adjoint, but who's gonna fight over a 2x2 inversion)
   fprintf(f, "  float invJ[2][2];\n");
@@ -83,6 +86,7 @@ void print_solve_omega(FILE *f, const poly_system_t *system, const char *vname[p
   for(int k=0;k<2;k++)
   fprintf(f, "    %s += invJ[%d][i]*dx1[i];\n", vname[k+2], k);
   fprintf(f, "  }\n");
+  fprintf(f, "  sqr_err = dx1[0]*dx1[0] + dx1[1]*dx1[1];\n");
 
   fprintf(f, "}\n"); // end newton iteration loop
   // now evaluate omega out
