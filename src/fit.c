@@ -74,6 +74,36 @@ void eval_poly(float *param, float *sample, int param_cnt, int sample_cnt, void 
   }
 }
 
+// our 'variables' are the coefficients of the polynomial. The derivatives hence,
+// equal the evaluation of the terms with coefficient = 1.
+void eval_jac(float *param, float *j, int param_cnt, int sample_cnt, void *data)
+{
+  tmpopt_t *tmp = (tmpopt_t *)data;
+
+  // recover broken parameters
+  for(int k=0;k<param_cnt;k++)
+  {
+    if(param[k] == param[k]) tmp->last_valid_param[k] = param[k];
+    else param[k] = tmp->last_valid_param[k];
+  }
+
+  // fill params into poly
+  poly_set_coeffs(tmp->poly->poly + tmp->fit_idx, max_degree, param);
+
+  int idx = 0;
+  for(int s=0;s<sample_cnt;s++)
+  {
+    const float *in = tmp->sample_in + 5*s;
+    for(int i=0;i<param_cnt;i++)
+    {
+      poly_term_t term = tmp->poly->poly[tmp->fit_idx].term[i];
+      term.coeff = 1;
+      j[idx++] = poly_term_evaluate(&term, in);
+      assert(j[idx-1] == j[idx-1]);
+    }
+  }
+}
+
 int main(int argc, char *arg[])
 {
   if(argc < 2)
@@ -91,6 +121,16 @@ int main(int argc, char *arg[])
   if(argc > 2) user_degree = atol(arg[2]);
   if(user_degree < 1) user_degree = 1;
   if(user_degree > 9) user_degree = 9;
+
+  int min_degree = 3;
+  if(argc > 3) min_degree = atol(arg[3]);
+  if(min_degree < 1) min_degree = 1;
+  if(min_degree > user_degree) min_degree = user_degree;
+
+  int min_degree_aperture = 1;
+  if(argc > 4) min_degree_aperture = atol(arg[4]);
+  if(min_degree_aperture < 1) min_degree_aperture = 1;
+  if(min_degree_aperture > user_degree) min_degree_aperture = user_degree;
 
   // load generic 1233-coefficient degree 9 polynomial template with all zero coeffs:
   poly_system_t poly, poly_ap;
@@ -155,7 +195,7 @@ int main(int argc, char *arg[])
   // ===================================================================================================
   float last_error = FLT_MAX;
   poly_system_t poly_backup = {0};
-  for(max_degree=3;max_degree <= user_degree; max_degree++)
+  for(max_degree=min_degree;max_degree <= user_degree; max_degree++)
   {
     int sumCoeffs = 0;
     float errorSum = 0.0f;
@@ -165,7 +205,8 @@ int main(int argc, char *arg[])
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly.poly + j, max_degree, 0);
       // optimize taylor polynomial a bit
-      slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
+      //slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
+      slevmar_der(eval_poly, eval_jac, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
       sumCoeffs += degree_coeff_size;
       errorSum += max(0.0f, info[1]);
     }
@@ -176,7 +217,12 @@ int main(int argc, char *arg[])
       poly_system_destroy(&poly_backup);
       poly_system_copy(&poly, &poly_backup);
     }
-    else break;
+    else
+    {
+      //restore backup
+      poly_system_copy(&poly_backup, &poly);
+    }
+    //else break;
   }
 
   // write optimised poly
@@ -218,7 +264,7 @@ int main(int argc, char *arg[])
   tmp.poly = &poly_ap;
 
   last_error = FLT_MAX;
-  for(max_degree=1;max_degree <= user_degree; max_degree++)
+  for(max_degree=min_degree_aperture;max_degree <= user_degree; max_degree++)
   {
     int sumCoeffs = 0;
     float errorSum = 0.0f;
@@ -228,7 +274,8 @@ int main(int argc, char *arg[])
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly_ap.poly + j, max_degree, 0);
       // optimize taylor polynomial a bit
-      slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
+      //slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
+      slevmar_der(eval_poly, eval_jac, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
       sumCoeffs += degree_coeff_size;
       errorSum += max(0.0f, info[1]);
     }
@@ -239,7 +286,12 @@ int main(int argc, char *arg[])
       poly_system_destroy(&poly_backup);
       poly_system_copy(&poly_ap, &poly_backup);
     }
-    else break;
+    else
+    {
+      //restore backup
+      poly_system_copy(&poly_backup, &poly_ap);
+    }
+    //else break;
   }
 
   snprintf(fitfile, 2048, "%s_ap.fit", lensfilename);
