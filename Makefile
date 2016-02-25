@@ -15,10 +15,13 @@ src/spectrum.h
 
 .PHONY=all clean
 
-all: view fit gencode
+all: view fit gencode fresnel
 
 view: Makefile src/view.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/view.c $(shell pkg-config --cflags --libs gtk+-2.0) ${LDFLAGS} -o view ${LDFLAGS}
+
+fresnel: Makefile src/fresnel.c ${HEADERS}
+	${CC} ${OPTFLAGS} ${CFLAGS} src/fresnel.c -o fresnel ${LDFLAGS}
 
 ext/levmar-2.6/liblevmar.a:
 	make -C ext/levmar-2.6 liblevmar.a
@@ -30,4 +33,4 @@ gencode: Makefile src/gencode.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/gencode.c -o gencode ${LDFLAGS}
 
 clean:
-	rm -f view fit gencode
+	rm -f view fit gencode fresnel fresnel.dat

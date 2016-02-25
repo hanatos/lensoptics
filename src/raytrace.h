@@ -117,6 +117,37 @@ static inline int refract(const float n1, const float n2, const float *n, float 
   return 0;
 }
 
+static inline float fresnel(const float n1, const float n2, const float cosr, const float cost)
+{
+  if(cost <= 0.0f) return 1.0f; // total inner reflection
+  // fresnel for unpolarized light:
+  const float Rs = (n1*cosr - n2*cost)/(n1*cosr + n2*cost);
+  const float Rp = (n1*cost - n2*cosr)/(n1*cost + n2*cosr);
+  return fminf(1.0f, (Rs*Rs + Rp*Rp)*.5f);
+} 
+
+static inline int refract_fresnel(const float n1, const float n2, const float *n, float *dir, float *intensity)
+{
+  if(n1 != n1 || n2 != n2 || n1 == n2)
+    return 0;
+  const float eta = n1/n2;
+
+  const float norm = sqrtf(raytrace_dot(dir,dir));
+  const float cos1 = - raytrace_dot(n, dir)/norm;
+  const float cos2_2 = 1.0f-eta*eta*(1.0f-cos1*cos1);
+  // total (inner) reflection?
+  if(cos2_2 < 0.0f)
+    return 8;
+  const float cos2 = sqrtf(cos2_2);
+
+  if(n2 != n1)
+    for(int i=0;i<3;i++) dir[i] = dir[i]*eta/norm + (eta*cos1-cos2)*n[i];
+
+  (*intensity) *= (1.0f-fresnel(n1, n2, cos1, cos2));
+
+  return 0;
+}
+
 static inline void planeToCs(const float *inpos, const float *indir, float *outpos, float *outdir, const float planepos)
 {
   outpos[0] = inpos[0];
@@ -227,6 +258,55 @@ static inline int evaluate(const lens_element_t *lenses, const int lenses_cnt, c
   // return [x,y,dx,dy,lambda]
   csToSphere(pos, dir, out, out + 2, distsum-fabs(lenses[0].lens_radius), lenses[0].lens_radius);
 
+  return error;
+}
+
+// evalute sensor to outer pupil acounting for fresnel:
+static inline int evaluate_w_fresnel(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out)
+{
+  int error = 0;
+  float n1 = 1.0f;
+  float pos[3], dir[3];
+  float intensity = 1;
+
+  planeToCs(in, in + 2, pos, dir, 0);
+
+  float distsum = 0;
+
+  for(int k=lenses_cnt-1;k>=0;k--)
+  {
+    // propagate the ray reverse to the plane of intersection optical axis/lens element:
+    const float R = -lenses[k].lens_radius; // negative, evaluate() is the adjoint case
+    float t = 0.0f;
+    const float dist = lens_get_thickness(lenses+k, zoom);
+    distsum += dist;
+
+    //normal at intersection
+    float n[3] = {0.0f};
+
+    if(lenses[k].anamorphic)
+      error |= cylindrical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
+    else
+      error |= spherical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
+
+    // index of refraction and ratio current/next:
+    const float n2 = k ? spectrum_eta_from_abbe_um(lenses[k-1].ior, lenses[k-1].vno, in[4]) : 1.0f; // outside the lens there is vacuum
+
+    //if(k > 1)
+      error |= refract_fresnel(n1, n2, n, dir, &intensity);
+    //else
+    //  error |= refract(n1, n2, n, dir);
+
+    if(error) return error;
+
+    raytrace_normalise(dir);
+
+    n1 = n2;
+  }
+  // return [x,y,dx,dy,lambda]
+  csToSphere(pos, dir, out, out + 2, distsum-fabs(lenses[0].lens_radius), lenses[0].lens_radius);
+  out[4] = in[4];
+  out[5] = intensity;
   return error;
 }
 
