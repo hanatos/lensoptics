@@ -84,7 +84,7 @@ int main(int argc, char *arg[])
     float curr_coeff = coeff[i];
     coeff[i] = 0;
     poly_system_set_coeffs(&poly, max_degree, coeff);
-    
+
     // evaluate the same rays as above and calculate the error introduced by
     // removing term i
     err[i] = 0;
@@ -95,20 +95,20 @@ int main(int argc, char *arg[])
       for(int k=0;k<5;k++)
         err[i] += (tmp[k]-sample_ref[5*j+k])*(tmp[k]-sample_ref[5*j+k]);
     }
-    
+
     //restore coefficient and iterate
     coeff[i] = curr_coeff;
     poly_system_set_coeffs(&poly, max_degree, coeff);
   }
-  
+
   // remove terms with error < eps
   for(int i=0;i<coeff_size;i++)
   {
-    if(err[i] < 1e-3)
+    if(err[i]/valid < 1e-3)
       coeff[i] = 0;
   }
   poly_system_set_coeffs(&poly, max_degree, coeff);
-  
+
   // write optimised poly
   char fitfile[2048];
   snprintf(fitfile, 2048, "%s.fit", lensfilename);
@@ -118,7 +118,7 @@ int main(int argc, char *arg[])
   poly_system_write(&poly, fitfile);
   free(err);
   free(coeff);
-  
+
   //Do the same for the aperture
   const int ap_coeff_size = poly_system_get_coeffs(&poly_ap, max_degree, 0);
   err = (float *)malloc(ap_coeff_size*sizeof(float));
@@ -126,7 +126,7 @@ int main(int argc, char *arg[])
   fprintf(stderr, "[ sensor->aperture ] optimising %d coeffs by %d/%d valid sample points\n", ap_coeff_size, valid, sample_cnt);
   for(int i=0;i<valid;i++)
     poly_system_evaluate(&poly_ap, sample_in+5*i, sample_ref+5*i, max_degree);
-  
+
   poly_system_get_coeffs(&poly_ap, max_degree, coeff);
   for(int i=0;i<ap_coeff_size;i++)
   {
@@ -134,7 +134,7 @@ int main(int argc, char *arg[])
     float curr_coeff = coeff[i];
     coeff[i] = 0;
     poly_system_set_coeffs(&poly_ap, max_degree, coeff);
-    
+
     //evaluate rays and calculate error
     err[i] = 0;
     for(int j=0;j<valid;j++)
@@ -144,7 +144,7 @@ int main(int argc, char *arg[])
       for(int k=0;k<5;k++)
         err[i] += (tmp[k]-sample_ref[5*j+k])*(tmp[k]-sample_ref[5*j+k]);
     }
-    
+
     //restore coefficient
     coeff[i] = curr_coeff;
     poly_system_set_coeffs(&poly_ap, max_degree, coeff);
@@ -153,18 +153,18 @@ int main(int argc, char *arg[])
   // remove terms with error < eps
   for(int i=0;i<ap_coeff_size;i++)
   {
-    if(err[i] < 1e-2)
+    if(err[i]/valid < 1e-3)
       coeff[i] = 0;
   }
   free(err);
-  poly_system_set_coeffs(&poly, max_degree, coeff);
-  
+  poly_system_set_coeffs(&poly_ap, max_degree, coeff);
+
   // write optimised poly
   snprintf(fitfile, 2048, "%s_ap.fit", lensfilename);
   poly_system_simplify(&poly_ap);
   fprintf(stderr, "output poly has %d coeffs.\n", poly_system_get_coeffs(&poly_ap, max_degree, 0));
   //poly_print(&poly_ap, 0, stderr);
   poly_system_write(&poly_ap, fitfile);
-  
+
   exit(0);
 }

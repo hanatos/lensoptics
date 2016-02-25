@@ -3,3 +3,5 @@ ext/levmar-2.6/*.a
 fit
 view
 gencode
+fresnel
+simplify
