@@ -10,8 +10,8 @@ do
   ./view $i -o
   mv screenshot.pdf lenses/${lens}.pdf
   echo ""
-# mkdir -p ~/vcs/corona-6/camera/${lens}${suffix}
-#  mv *.h ~/vcs/corona-6/camera/${lens}${suffix}/
+  mkdir -p ../corona-13/camera/${lens}${suffix}
+  mv *.h ../corona-13/camera/${lens}${suffix}/
 done
 pdftk lenses/*pdf cat output lenses.pdf
 

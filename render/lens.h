@@ -98,8 +98,7 @@ static inline void lens_lt_sample_aperture(
     const float *scene,   // 3d point in scene in camera space
     const float *ap,      // 2d point on aperture (in camera space, z is known)
     float *sensor,        // output point and direction on sensor plane/plane
-    const float lambda,   // wavelength
-    const float dist)     // sensor distance (focus)
+    const float lambda)   // wavelength
 {
   const float scene_x = scene[0], scene_y = scene[1], scene_z = scene[2];
   const float ap_x = ap[0], ap_y = ap[1];

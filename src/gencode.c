@@ -51,11 +51,11 @@ int main(int argc, char **argv)
   fclose(f);
 
   f = fopen("pt_sample_aperture.h", "wb");
-  print_solve_omega(f, &poly_ap, varnames);
+  print_pt_sample_aperture(f, &poly_ap, varnames);
   fclose(f);
 
   f = fopen("lt_sample_aperture.h", "wb");
-  print_connect(f, &poly, &poly_ap, varnames);
+  print_lt_sample_aperture(f, &poly, &poly_ap, varnames);
   fclose(f);
 
   char name[512];

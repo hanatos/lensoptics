@@ -21,11 +21,11 @@ void print_jacobian(FILE *f, const poly_system_t *system, const char *vname[poly
     {
       fprintf(f, "const float dx%d%d = ", i, j);
       poly_print(&jacobian.poly[i*poly_num_vars+j], vname, f);
-      fprintf(f, ";\n");
+      fprintf(f, "+0.0f;\n");
     }
 }
 
-void print_solve_omega(FILE *f, const poly_system_t *system, const char *vname[poly_num_vars])
+void print_pt_sample_aperture(FILE *f, const poly_system_t *system, const char *vname[poly_num_vars])
 {
   // input to this is [x,y,dx,dy] and `dist', which is the distance to the start of the polynomial.
 
@@ -120,7 +120,7 @@ void print_solve_omega(FILE *f, const poly_system_t *system, const char *vname[p
 //   // mapping sensor positions to outer pupil directions
 //   x[x,y] += J^{-1}(x) * delta_out
 // }
-void print_connect(FILE *f, const poly_system_t *system, const poly_system_t *ap_system, const char *vname[poly_num_vars])
+void print_lt_sample_aperture(FILE *f, const poly_system_t *system, const poly_system_t *ap_system, const char *vname[poly_num_vars])
 {
   // input to this is scene_[x,y,z] point in scene and ap_[x,y] point on the aperture
   fprintf(f, "//input: scene_[x,y,z] - point in scene, ap_[x,y] - point on aperture\n");
@@ -130,13 +130,13 @@ void print_connect(FILE *f, const poly_system_t *system, const poly_system_t *ap
   for(int k=0;k<poly_num_vars;k++) begin_var[k] = malloc(50);
   for(int k=0;k<poly_num_vars;k++) snprintf(begin_var[k], 50, "begin_%s", vname[k]);
 
-  fprintf(f, "const float eps = 1e-6;\n");
+  fprintf(f, "const float eps = 1e-12;\n");
   fprintf(f, "float sqr_err = 1e30, sqr_ap_err = 1e30;\n");
   fprintf(f, "for(int k=0;k<100&&(sqr_err>eps||sqr_ap_err>eps);k++)\n{\n");
 
-  // 1) compute input to the polynomial, begin_[x,y,dx,dy] from our initial guess and the distance:
-  fprintf(f, "  const float %s = %s + dist * %s;\n", begin_var[0], vname[0], vname[2]);
-  fprintf(f, "  const float %s = %s + dist * %s;\n", begin_var[1], vname[1], vname[3]);
+  // 1) input to the polynomial, begin_[x,y,dx,dy], is always the same as the current sensor guess vname:
+  fprintf(f, "  const float %s = %s;\n", begin_var[0], vname[0]);
+  fprintf(f, "  const float %s = %s;\n", begin_var[1], vname[1]);
   fprintf(f, "  const float %s = %s;\n", begin_var[2], vname[2]);
   fprintf(f, "  const float %s = %s;\n", begin_var[3], vname[3]);
   fprintf(f, "  const float %s = %s;\n", begin_var[4], vname[4]);
@@ -165,7 +165,7 @@ void print_connect(FILE *f, const poly_system_t *system, const poly_system_t *ap
     fprintf(f, "+0.0f;\n");
   }
 
-  // 3.2) invert jacobian (could use adjoint, but who's gonna fight over a 2x2 inversion)
+  // 3.2) invert jacobian
   fprintf(f, "  float invApJ[2][2];\n");
   fprintf(f, "  const float invdetap = 1.0f/(dx1_domega0[0][0]*dx1_domega0[1][1] - dx1_domega0[0][1]*dx1_domega0[1][0]);\n");
   fprintf(f, "  invApJ[0][0] =  dx1_domega0[1][1]*invdetap;\n");
@@ -194,17 +194,17 @@ void print_connect(FILE *f, const poly_system_t *system, const poly_system_t *ap
     poly_print(&system->poly[k], (const char**)begin_var, f);
     fprintf(f, "%s", k<4?",\n":"\n  };\n");
   }
-  fprintf(f, "  float pred_out_ws[7] = {0.0f};\n");
-  fprintf(f, "  lens_sphereToCs(pred_out, pred_out+2, pred_out_ws, pred_out_ws+3, lens_length - lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);\n");
+  fprintf(f, "  float pred_out_cs[7] = {0.0f};\n");
+  fprintf(f, "  lens_sphereToCs(pred_out, pred_out+2, pred_out_cs, pred_out_cs+3, lens_length - lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);\n");
   fprintf(f, "  float view[3] =\n  {\n");
-  fprintf(f, "    scene_x - pred_out_ws[0],\n");
-  fprintf(f, "    scene_y - pred_out_ws[1],\n");
-  fprintf(f, "    scene_z - pred_out_ws[2]\n  };\n");
+  fprintf(f, "    scene_x - pred_out_cs[0],\n");
+  fprintf(f, "    scene_y - pred_out_cs[1],\n");
+  fprintf(f, "    scene_z - pred_out_cs[2]\n  };\n");
   fprintf(f, "  normalise(view);\n");
 
   fprintf(f, "  float out_new[5];\n");
   //Position is just converted back, direction gets replaced with new one
-  fprintf(f, "  lens_csToSphere(pred_out_ws, view, out_new, out_new+2, lens_length - lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);\n");
+  fprintf(f, "  lens_csToSphere(pred_out_cs, view, out_new, out_new+2, lens_length - lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);\n");
 
   //Calculate error vector (out_new - pred_out)[dx,dy]
   fprintf(f, "  const float delta_out[] = {out_new[2] - pred_out[2], out_new[3] - pred_out[3]};\n");
@@ -222,7 +222,7 @@ void print_connect(FILE *f, const poly_system_t *system, const poly_system_t *ap
     fprintf(f, "+0.0f;\n");
   }
 
-  // 5.2) invert jacobian (could use adjoint, but who's gonna fight over a 2x2 inversion)
+  // 5.2) invert jacobian
   fprintf(f, "  float invJ[2][2];\n");
   fprintf(f, "  const float invdet = 1.0f/(domega2_dx0[0][0]*domega2_dx0[1][1] - domega2_dx0[0][1]*domega2_dx0[1][0]);\n");
   fprintf(f, "  invJ[0][0] =  domega2_dx0[1][1]*invdet;\n");
@@ -230,12 +230,10 @@ void print_connect(FILE *f, const poly_system_t *system, const poly_system_t *ap
   fprintf(f, "  invJ[0][1] = -domega2_dx0[0][1]*invdet;\n");
   fprintf(f, "  invJ[1][0] = -domega2_dx0[1][0]*invdet;\n");
 
-  // 5.3) propagate back error
+  // 5.3) propagate error back to sensor
   fprintf(f, "  for(int i=0;i<2;i++)\n  {\n");
   for(int k=0;k<2;k++)
-  {
     fprintf(f, "    %s += invJ[%d][i]*delta_out[i];\n", vname[k], k);
-  }
   fprintf(f, "  }\n");
   fprintf(f, "}\n");
   for(int k=0;k<poly_num_vars;k++) free(begin_var[k]);
