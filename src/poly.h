@@ -151,7 +151,7 @@ void poly_print(const poly_t *p, const char *vname[poly_num_vars], FILE *f)
         if(p->term[t].exp[k] == 1)
           fprintf(f, "*%s", vname ? vname[k] : vn[k]);
         else if(p->term[t].exp[k] > 0)
-          fprintf(f, "*ipow(%s, %d)", vname ? vname[k] : vn[k], p->term[t].exp[k]);
+          fprintf(f, "*lens_ipow(%s, %d)", vname ? vname[k] : vn[k], p->term[t].exp[k]);
     }
   }
 }

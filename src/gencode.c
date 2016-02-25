@@ -16,10 +16,12 @@ int main(int argc, char **argv)
     lensfilename = argv[1];
 
   poly_system_t poly, poly_ap;
-  //XXX lensfilename.fit, lensfilename_ap.fit
-  if(poly_system_read(&poly, "../lenses/fisheye-ii.fx.fit") || poly_system_read(&poly_ap, "../lenses/fisheye-ii.fx_ap.fit"))
+  char fitf[1024], afitf[1024];
+  snprintf(fitf,  sizeof(fitf),  "%s.fit", lensfilename);
+  snprintf(afitf, sizeof(afitf), "%s_ap.fit", lensfilename);
+  if(poly_system_read(&poly, fitf) || poly_system_read(&poly_ap, afitf))
   {
-    fprintf(stderr, "[fit] could not read `degree9.poly' template!\n");
+    fprintf(stderr, "[gencode] could not read poly fits for `%s'!\n", lensfilename);
     exit(1);
   }
 
@@ -48,11 +50,11 @@ int main(int argc, char **argv)
   print_jacobian(f, &poly_ap, varnames);
   fclose(f);
 
-  f = fopen("pt_sample_ap.h", "wb");
+  f = fopen("pt_sample_aperture.h", "wb");
   print_solve_omega(f, &poly_ap, varnames);
   fclose(f);
 
-  f = fopen("lt_sample_ap.h", "wb");
+  f = fopen("lt_sample_aperture.h", "wb");
   print_connect(f, &poly, &poly_ap, varnames);
   fclose(f);
 
