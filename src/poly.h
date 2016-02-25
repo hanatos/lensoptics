@@ -193,6 +193,26 @@ int poly_system_write(poly_system_t *s, const char *filename)
 // write the coefficients of the polynomial p to the given coefficient array
 // coeff. skip all terms with degree > max_degree. returns the number
 // of written coefficients. coeff can be 0 to just return the count up front.
+int poly_get_coeffs(const poly_t *p, const int max_degree, float *coeff)
+{
+  int cnt = 0;
+  for(int t=0;t<p->num_terms;t++)
+  {
+    int degree = 0;
+    for(int k=0;k<poly_num_vars;k++) degree += p->term[t].exp[k];
+    if(degree <= max_degree)
+    {
+      if(coeff) coeff[cnt] = p->term[t].coeff;
+      cnt++;
+    }
+    else break;
+  }
+  return cnt;
+}
+
+// write the coefficients of the polynomial p to the given coefficient array
+// coeff. skip all terms with degree > max_degree. returns the number
+// of written coefficients. coeff can be 0 to just return the count up front.
 int poly_system_get_coeffs(const poly_system_t *s, const int max_degree, float *coeff)
 {
   int cnt = 0;
@@ -209,6 +229,26 @@ int poly_system_get_coeffs(const poly_system_t *s, const int max_degree, float *
       }
       else break;
     }
+  }
+  return cnt;
+}
+
+// set the coefficients of the given polynomial to the ones in the buffer.
+// skip all terms with degree > max_degree. returns the number of set
+// coefficients for sanity checking.
+int poly_set_coeffs(poly_t *p, const int max_degree, const float *coeff)
+{
+  int cnt = 0;
+  for(int t=0;t<p->num_terms;t++)
+  {
+    int degree = 0;
+    for(int k=0;k<poly_num_vars;k++) degree += p->term[t].exp[k];
+    if(degree <= max_degree)
+    {
+      p->term[t].coeff = coeff[cnt];
+      cnt++;
+    }
+    else break; // input was sorted by degree. first > max is the end of our list.
   }
   return cnt;
 }

@@ -26,6 +26,7 @@ typedef struct tmpopt_t
   poly_system_t *poly;
   float *reference;
   float *last_valid_param;
+  int fit_idx;
 }
 tmpopt_t;
 
@@ -54,19 +55,21 @@ void eval_poly(float *param, float *sample, int param_cnt, int sample_cnt, void 
   }
 
   // fill params into poly
-  poly_system_set_coeffs(tmp->poly, max_degree, param);
+  //poly_system_set_coeffs(tmp->poly, max_degree, param);
+  poly_set_coeffs(tmp->poly->poly + tmp->fit_idx, max_degree, param);
 
 #pragma omp parallel for default(shared)
-  for(int s=0;s<sample_cnt/4;s++)
+  for(int s=0;s<sample_cnt;s++)
   {
     const float *in = tmp->sample_in + 5*s;
     float out[5];
     poly_system_evaluate(tmp->poly, in, out, max_degree);
     // system is really 5x4, don't output wavelength:
-    for(int k=0;k<4;k++)
+    int k = tmp->fit_idx;
+    //for(int k=0;k<4;k++)
     {
-      sample[4*s+k] = out[k];
-      assert(sample[4*s+k] == sample[4*s+k]);
+      sample[s] = out[k];
+      assert(sample[s] == sample[s]);
     }
   }
 }
@@ -125,7 +128,7 @@ int main(int argc, char *arg[])
     if(!error)
     {
       for(int k=0;k<5;k++) sample_in[5*valid + k] = ray_in[k];
-      for(int k=0;k<4;k++) sample[4*valid+k] = out[k];
+      for(int k=0;k<4;k++) sample[valid+k*sample_cnt] = out[k];
       valid++;
     }
     // only need to be able to determine the dimensionality of our problem, not much more:
@@ -154,15 +157,24 @@ int main(int argc, char *arg[])
   poly_system_t poly_backup = {0};
   for(max_degree=3;max_degree <= user_degree; max_degree++)
   {
-    const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
-    // optimize taylor polynomial a bit
-    slevmar_dif(eval_poly, coeff, sample, degree_coeff_size, valid*4, 1000, opts, info, NULL, NULL, &tmp);
-    fprintf(stderr, "degree %d has %d samples, fitting error %g\n", max_degree, degree_coeff_size, info[1]);
-    if(info[1] >= 0.0f && info[1] < last_error)
+    int sumCoeffs = 0;
+    float errorSum = 0.0f;
+    for(int j = 0; j < 4; j++)
     {
+      tmp.fit_idx = j;
+      //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
+      const int degree_coeff_size = poly_get_coeffs(poly.poly + j, max_degree, 0);
+      // optimize taylor polynomial a bit
+      slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
+      sumCoeffs += degree_coeff_size;
+      errorSum += max(0.0f, info[1]);
+    }
+    fprintf(stderr, "degree %d has %d samples, fitting error %g\n", max_degree, sumCoeffs, errorSum);
+    if(errorSum >= 0.0f && errorSum < last_error)
+    {
+      last_error = errorSum;
       poly_system_destroy(&poly_backup);
       poly_system_copy(&poly, &poly_backup);
-      last_error = info[1];
     }
     else break;
   }
@@ -196,7 +208,7 @@ int main(int argc, char *arg[])
       for(int k=0;k<5;k++)
         sample_in[5*valid + k] = ray_in[k];
       for(int k=0;k<4;k++)
-        sample[4*valid+k] = out[k];
+        sample[valid+k*sample_cnt] = out[k];
       valid++;
     }
     if(valid > oversample*coeff_size) break;
@@ -208,12 +220,22 @@ int main(int argc, char *arg[])
   last_error = FLT_MAX;
   for(max_degree=1;max_degree <= user_degree; max_degree++)
   {
-    const int degree_coeff_size = poly_system_get_coeffs(&poly_ap, max_degree, 0);
-    slevmar_dif(eval_poly, coeff, sample, degree_coeff_size, valid*4, 1000, opts, info, NULL, NULL, &tmp);
-    fprintf(stderr, "degree %d has %d samples fitting error %g\n", max_degree, degree_coeff_size, info[1]);
-    if(info[1] >= 0.0f && info[1] < last_error)
+    int sumCoeffs = 0;
+    float errorSum = 0.0f;
+    for(int j = 0; j < 4; j++)
     {
-      last_error = info[1];
+      tmp.fit_idx = j;
+      //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
+      const int degree_coeff_size = poly_get_coeffs(poly_ap.poly + j, max_degree, 0);
+      // optimize taylor polynomial a bit
+      slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
+      sumCoeffs += degree_coeff_size;
+      errorSum += max(0.0f, info[1]);
+    }
+    fprintf(stderr, "degree %d has %d samples, fitting error %g\n", max_degree, sumCoeffs, errorSum);
+    if(errorSum >= 0.0f && errorSum < last_error)
+    {
+      last_error = errorSum;
       poly_system_destroy(&poly_backup);
       poly_system_copy(&poly_ap, &poly_backup);
     }
