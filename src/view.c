@@ -321,7 +321,7 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       if(!aperture_death)
       {
         //TODO: use transmittance from polynomial evaluation
-        float transmittance = 1.0f; //out[4];
+        float transmittance = out[4];
         cairo_set_source_rgba(cr, rgb[0], rgb[1], rgb[2], transmittance);
         // sensor
         cairo_move_to(cr, 0, in[dim_up]);

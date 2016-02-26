@@ -182,7 +182,7 @@ int main(int argc, char *arg[])
     if(!error)
     {
       for(int k=0;k<5;k++) sample_in[5*valid + k] = ray_in[k];
-      for(int k=0;k<4;k++) sample[valid+k*sample_cnt] = out[k];
+      for(int k=0;k<5;k++) sample[valid+k*sample_cnt] = out[k];
       valid++;
     }
     // only need to be able to determine the dimensionality of our problem, not much more:
@@ -216,7 +216,7 @@ int main(int argc, char *arg[])
     int sumCoeffs = 0;
     float errorSum = 0.0f;
     memset(tmp.last_valid_param, 0, sizeof(float)*coeff_size);
-    for(int j = 0; j < 4; j++)
+    for(int j = 0; j < 5; j++)
     {
       tmp.fit_idx = j;
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
@@ -240,6 +240,7 @@ int main(int argc, char *arg[])
 //      {
 //        poly_destroy(poly.poly+j);
 //        poly_copy(poly_backup.poly+j, poly.poly+j);
+//        poly_get_coeffs(poly_backup.poly+j, max_degree, coeff+sumCoeffs);
 //      }
       fprintf(stderr, "error: %g\n", info[1]);
       errorSum += max(0.0f, info[1]);
@@ -262,7 +263,7 @@ int main(int argc, char *arg[])
     float out[5];
     int error = evaluate_aperture(lenses, lenses_cnt, zoom, ray_in, out);
     assert(error == 0);
-    for(int k=0;k<4;k++)
+    for(int k=0;k<5;k++)
       sample[i+k*sample_cnt] = out[k];
   }
   fprintf(stderr, "[ sensor->aperture ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
@@ -277,7 +278,7 @@ int main(int argc, char *arg[])
     int sumCoeffs = 0;
     float errorSum = 0.0f;
     memset(tmp.last_valid_param, 0, sizeof(float)*coeff_size);
-    for(int j = 0; j < 4; j++)
+    for(int j = 0; j < 5; j++)
     {
       tmp.fit_idx = j;
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
@@ -301,6 +302,7 @@ int main(int argc, char *arg[])
 //      {
 //        poly_destroy(poly_ap.poly+j);
 //        poly_copy(poly_backup.poly+j, poly_ap.poly+j);
+//        poly_get_coeffs(poly_backup.poly+j, max_degree, coeff+sumCoeffs);
 //      }
       fprintf(stderr, "error: %g\n", info[1]);
       errorSum += max(0.0f, info[1]);

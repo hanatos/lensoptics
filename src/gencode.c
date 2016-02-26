@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     "y",
     "dx",
     "dy",
-    "lambda"
+    "transmittance"
   };
 
   f = fopen("pt_evaluate.h", "wb");

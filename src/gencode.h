@@ -3,7 +3,7 @@
 
 void print_poly_system_code(FILE *f, const poly_system_t *system, const char *vname[poly_num_vars])
 {
-  for(int i = 0; i < poly_num_vars-1; i++)
+  for(int i = 0; i < poly_num_vars; i++)
   {
     fprintf(f, "const float out_%s = ", vname[i]);
     poly_print(&system->poly[i], vname, f);
@@ -16,7 +16,7 @@ void print_jacobian(FILE *f, const poly_system_t *system, const char *vname[poly
 {
   poly_jacobian_t jacobian;
   poly_system_get_jacobian(system, &jacobian);
-  for(int i = 0; i < poly_num_vars-1; i++)
+  for(int i = 0; i < poly_num_vars; i++)
     for(int j = 0; j < poly_num_vars; j++)
     {
       fprintf(f, "const float dx%d%d = ", i, j);
