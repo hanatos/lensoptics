@@ -260,8 +260,9 @@ int main(int argc, char *arg[])
   for(int i=0;i<valid;i++)
   {
     float *ray_in = sample_in+5*i;
-    float out[5];
+    float out[5] = {0.0f};
     int error = evaluate_aperture(lenses, lenses_cnt, zoom, ray_in, out);
+    (void)error; // silence non-debug build warning
     assert(error == 0);
     for(int k=0;k<5;k++)
       sample[i+k*sample_cnt] = out[k];
