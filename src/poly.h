@@ -288,7 +288,7 @@ void poly_system_simplify(poly_system_t *s)
           s->poly[j].num_terms--;
         else
         {
-          memcpy(s->poly[j].term+t, s->poly[j].term+t+1, sizeof(poly_term_t));
+          memmove(s->poly[j].term+t, s->poly[j].term+t+1, (s->poly[j].num_terms-t-1)*sizeof(poly_term_t));
           t--;
           s->poly[j].num_terms--;
         }
