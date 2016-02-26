@@ -31,11 +31,11 @@ int main(int argc, char *arg[])
       0.4 + 0.3*w};
     ray_in[2] -= ray_in[0] / p_dist;
     ray_in[3] -= ray_in[1] / p_dist;
-    float out[6] = {0.0f, 0.0f, 0.0f, 0.0f, ray_in[4], 1.0f};
-    int error = evaluate_w_fresnel(lenses, lenses_cnt, zoom, ray_in, out);
+    float out[5] = {0.0f, 0.0f, 0.0f, 0.0f, ray_in[4]};
+    int error = evaluate(lenses, lenses_cnt, zoom, ray_in, out);
     if(!error)
     {
-      float intensity = out[5];
+      float intensity = out[4];
       fprintf(f, "%g, %g, %g\n", out[0], out[1], intensity);
     }
     else
