@@ -42,7 +42,6 @@ void print_coeffs(float *param, int param_cnt)
     fprintf(stderr, "\n");
   }
 }
-
 void eval_poly(float *param, float *sample, int param_cnt, int sample_cnt, void *data)
 {
   tmpopt_t *tmp = (tmpopt_t *)data;
@@ -80,15 +79,7 @@ void eval_jac(float *param, float *j, int param_cnt, int sample_cnt, void *data)
 {
   tmpopt_t *tmp = (tmpopt_t *)data;
 
-  // recover broken parameters
-  for(int k=0;k<param_cnt;k++)
-  {
-    if(param[k] == param[k]) tmp->last_valid_param[k] = param[k];
-    else param[k] = tmp->last_valid_param[k];
-  }
-
-  // fill params into poly
-  poly_set_coeffs(tmp->poly->poly + tmp->fit_idx, max_degree, param);
+  //no need to set coefficients - we set them to one anyway
 
   int idx = 0;
   for(int s=0;s<sample_cnt;s++)
@@ -132,22 +123,45 @@ int main(int argc, char *arg[])
   if(min_degree_aperture < 1) min_degree_aperture = 1;
   if(min_degree_aperture > user_degree) min_degree_aperture = user_degree;
 
+  int pass2 = 0;
+  for(int i = 1; i < argc && pass2 == 0; i++)
+    if(atol(arg[i]) == -2)
+      pass2 = 1;
+
+  char fitfile[2048], apfitfile[2048];
+  snprintf(fitfile, 2048, "%s.fit", lensfilename);
+  snprintf(apfitfile, 2048, "%s_ap.fit", lensfilename);
+
   // load generic 1233-coefficient degree 9 polynomial template with all zero coeffs:
   poly_system_t poly, poly_ap;
-  if(poly_system_read(&poly, "degree9-sorted.poly") || poly_system_read(&poly_ap, "degree9-sorted.poly"))
+  if(!pass2)
   {
-    fprintf(stderr, "[fit] could not read `degree9.poly' template!\n");
-    exit(1);
+    if(poly_system_read(&poly, "degree9-sorted.poly") || poly_system_read(&poly_ap, "degree9-sorted.poly"))
+    {
+      fprintf(stderr, "[fit] could not read `degree9.poly' template!\n");
+      exit(1);
+    }
+  }
+  else
+  {
+    if(!poly_system_read(&poly, fitfile) && !poly_system_read(&poly_ap, apfitfile))
+      user_degree = min_degree = min_degree_aperture = max_degree = 9;
+    else
+    {
+      fprintf(stderr, "[fit] could not read fitted polynomials %s and %s!\n", fitfile, apfitfile);
+      exit(1);
+    }
   }
   // already storing sorted:
   // poly_system_sort(&poly);
   // poly_system_sort(&poly_ap);
 
-  const int coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
+  const int coeff_size = max(poly_system_get_coeffs(&poly, max_degree, 0),
+    poly_system_get_coeffs(&poly_ap, max_degree, 0));
   float *coeff = (float *)malloc(sizeof(float)*coeff_size);
 
   const int sample_cnt = 100000;
-  float *sample = (float *)malloc(sample_cnt*sizeof(float)*4+1);
+  float *sample = (float *)malloc(sample_cnt*sizeof(float)*5);
   float *sample_in = (float *)malloc(sample_cnt*sizeof(float)*5);
   const int oversample = 10; // only do this x coeff count many ray tracing samples
 
@@ -193,41 +207,47 @@ int main(int argc, char *arg[])
   // ===================================================================================================
   // evaluate poly sensor -> outer pupil
   // ===================================================================================================
-  float last_error = FLT_MAX;
+  float last_error[5] = {FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX};
   poly_system_t poly_backup = {0};
+
+  poly_system_copy(&poly, &poly_backup);
   for(max_degree=min_degree;max_degree <= user_degree; max_degree++)
   {
     int sumCoeffs = 0;
     float errorSum = 0.0f;
+    memset(tmp.last_valid_param, 0, sizeof(float)*coeff_size);
     for(int j = 0; j < 4; j++)
     {
       tmp.fit_idx = j;
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly.poly + j, max_degree, 0);
+
+      //restore coefficients from backup poly as initial guess
+      memset(coeff + sumCoeffs, 0, sizeof(float)*degree_coeff_size);
+      //poly_get_coeffs(poly_backup.poly+j, max_degree, coeff + sumCoeffs);
+
       // optimize taylor polynomial a bit
       //slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
       slevmar_der(eval_poly, eval_jac, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
       sumCoeffs += degree_coeff_size;
+      if(info[1] < last_error[j])
+      {
+        last_error[j] = info[1];
+        poly_destroy(poly_backup.poly+j);
+        poly_copy(poly.poly+j, poly_backup.poly+j);
+      }
+//      else
+//      {
+//        poly_destroy(poly.poly+j);
+//        poly_copy(poly_backup.poly+j, poly.poly+j);
+//      }
+      fprintf(stderr, "error: %g\n", info[1]);
       errorSum += max(0.0f, info[1]);
     }
     fprintf(stderr, "degree %d has %d samples, fitting error %g\n", max_degree, sumCoeffs, errorSum);
-    if(errorSum >= 0.0f && errorSum < last_error)
-    {
-      last_error = errorSum;
-      poly_system_destroy(&poly_backup);
-      poly_system_copy(&poly, &poly_backup);
-    }
-    else
-    {
-      //restore backup
-      poly_system_copy(&poly_backup, &poly);
-    }
-    //else break;
   }
 
   // write optimised poly
-  char fitfile[2048];
-  snprintf(fitfile, 2048, "%s.fit", lensfilename);
   poly_system_simplify(&poly_backup);
   fprintf(stderr, "output poly has %d coeffs.\n", poly_system_get_coeffs(&poly_backup, user_degree, 0));
   poly_system_write(&poly_backup, fitfile);
@@ -235,69 +255,62 @@ int main(int argc, char *arg[])
   // ===================================================================================================
   // evaluate_aperture poly sensor -> aperture
   // ===================================================================================================
-  valid = 0;
-  for(int i=0;i<sample_cnt;i++)
+  memset(sample, 0, sizeof(float)*sample_cnt*5);
+  for(int i=0;i<valid;i++)
   {
-    const float u = drand48(), v = drand48(), w = drand48(), x = drand48(), y = drand48();
-    float ray_in[] = {
-      p_rad * 4.0f * (x-0.5),//36.0f * (x-0.5),
-      p_rad * 4.0f * (y-0.5),//24.0f * (y-0.5),
-      p_rad/p_dist * cosf(2.0f*M_PI*u)*sqrtf(v),
-      p_rad/p_dist * sinf(2.0f*M_PI*u)*sqrtf(v),
-      0.4 + 0.3*w};
-    ray_in[2] -= ray_in[0] / p_dist;
-    ray_in[3] -= ray_in[1] / p_dist;
+    float *ray_in = sample_in+5*i;
     float out[5];
     int error = evaluate_aperture(lenses, lenses_cnt, zoom, ray_in, out);
-    if(!error)
-    {
-      for(int k=0;k<5;k++)
-        sample_in[5*valid + k] = ray_in[k];
-      for(int k=0;k<4;k++)
-        sample[valid+k*sample_cnt] = out[k];
-      valid++;
-    }
-    if(valid > oversample*coeff_size) break;
+    assert(error == 0);
+    for(int k=0;k<4;k++)
+      sample[i+k*sample_cnt] = out[k];
   }
   fprintf(stderr, "[ sensor->aperture ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
 
   tmp.poly = &poly_ap;
 
-  last_error = FLT_MAX;
+  for(int i = 0; i < 5; i++) last_error[i] = FLT_MAX;
+  poly_system_copy(&poly_ap, &poly_backup);
+
   for(max_degree=min_degree_aperture;max_degree <= user_degree; max_degree++)
   {
     int sumCoeffs = 0;
     float errorSum = 0.0f;
+    memset(tmp.last_valid_param, 0, sizeof(float)*coeff_size);
     for(int j = 0; j < 4; j++)
     {
       tmp.fit_idx = j;
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly_ap.poly + j, max_degree, 0);
+
+      //restore coefficients from backup poly as initial guess
+      memset(coeff + sumCoeffs, 0, sizeof(float)*degree_coeff_size);
+      //poly_get_coeffs(poly_backup.poly+j, max_degree, coeff + sumCoeffs);
+
       // optimize taylor polynomial a bit
       //slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
       slevmar_der(eval_poly, eval_jac, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
       sumCoeffs += degree_coeff_size;
+      if(info[1] < last_error[j])
+      {
+        last_error[j] = info[1];
+        poly_destroy(poly_backup.poly+j);
+        poly_copy(poly_ap.poly+j, poly_backup.poly+j);
+      }
+//      else
+//      {
+//        poly_destroy(poly_ap.poly+j);
+//        poly_copy(poly_backup.poly+j, poly_ap.poly+j);
+//      }
+      fprintf(stderr, "error: %g\n", info[1]);
       errorSum += max(0.0f, info[1]);
     }
     fprintf(stderr, "degree %d has %d samples, fitting error %g\n", max_degree, sumCoeffs, errorSum);
-    if(errorSum >= 0.0f && errorSum < last_error)
-    {
-      last_error = errorSum;
-      poly_system_destroy(&poly_backup);
-      poly_system_copy(&poly_ap, &poly_backup);
-    }
-    else
-    {
-      //restore backup
-      poly_system_copy(&poly_backup, &poly_ap);
-    }
-    //else break;
   }
 
-  snprintf(fitfile, 2048, "%s_ap.fit", lensfilename);
   poly_system_simplify(&poly_backup);
   // TODO: this totally doesn't throw away useless coeffs, the fitter will make ineffective ones != 0!
   fprintf(stderr, "output aperture poly has %d coeffs.\n", poly_system_get_coeffs(&poly_backup, user_degree, 0));
-  poly_system_write(&poly_backup, fitfile);
+  poly_system_write(&poly_backup, apfitfile);
   exit(0);
 }
