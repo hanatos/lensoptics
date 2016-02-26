@@ -91,7 +91,7 @@ hue_2_rgb(float v1, float v2, float vH)
   if ((2.0f * vH) < 1.0f) return (v2);
   if ((3.0f * vH) < 2.0f) return (v1 + (v2 - v1) * ((2.0f / 3.0f) - vH) * 6.0f);
   return (v1);
-} 
+}
 
 static inline void
 hsl_2_rgb(const float *HSL, float *RGB)
@@ -300,6 +300,8 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       for(int i=0;i<5;i++) in[i] = outrt[i];
       in[2] = -in[2];
       in[3] = -in[3];
+      //outrt[4] equals transmittance
+      in[4] = lambda;
       poly_system_evaluate(&poly, in, out, 9);
 
       // evaluate error poly vs ray traced:
@@ -318,7 +320,9 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       const int aperture_death = (ap[0]*ap[0] + ap[1]*ap[1] > aperture_rad*aperture_rad);
       if(!aperture_death)
       {
-        cairo_set_source_rgb(cr, rgb[0], rgb[1], rgb[2]);
+        //TODO: use transmittance from polynomial evaluation
+        float transmittance = 1.0f; //out[4];
+        cairo_set_source_rgba(cr, rgb[0], rgb[1], rgb[2], transmittance);
         // sensor
         cairo_move_to(cr, 0, in[dim_up]);
         cairo_line_to(cr, 0+len, in[dim_up] + len*in[dim_up+2]);
@@ -340,6 +344,7 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
     {
       outrt[2] = -outrt[2];
       outrt[3] = -outrt[3];
+      outrt[4] = lambda;
       error = evaluate_draw(lenses, lenses_cnt, zoom, outrt, inrt, cr, scale, dim_up);
     }
   }
