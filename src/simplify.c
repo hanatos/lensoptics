@@ -66,7 +66,7 @@ int main(int argc, char *arg[])
       valid++;
     }
     // only need to be able to determine the dimensionality of our problem, not much more:
-    if(valid > oversample*coeff_size) break;
+    if(valid > max(1000, oversample*coeff_size)) break;
   }
 
   // calculate reference evaluation of polynomial
@@ -104,7 +104,7 @@ int main(int argc, char *arg[])
   // remove terms with error < eps
   for(int i=0;i<coeff_size;i++)
   {
-    if(err[i]/valid < 1e-3)
+    if(err[i]/valid < 1e-6)
       coeff[i] = 0;
   }
   poly_system_set_coeffs(&poly, max_degree, coeff);
@@ -153,10 +153,9 @@ int main(int argc, char *arg[])
   // remove terms with error < eps
   for(int i=0;i<ap_coeff_size;i++)
   {
-    if(err[i]/valid < 1e-3)
+    if(err[i]/valid < 1e-6)
       coeff[i] = 0;
   }
-  free(err);
   poly_system_set_coeffs(&poly_ap, max_degree, coeff);
 
   // write optimised poly
@@ -165,6 +164,11 @@ int main(int argc, char *arg[])
   fprintf(stderr, "output poly has %d coeffs.\n", poly_system_get_coeffs(&poly_ap, max_degree, 0));
   //poly_print(&poly_ap, 0, stderr);
   poly_system_write(&poly_ap, fitfile);
+
+  free(err);
+  free(coeff);
+  free(sample_in);
+  free(sample_ref);
 
   exit(0);
 }
