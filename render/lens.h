@@ -64,19 +64,23 @@ static inline void lens_csToSphere(const float *inpos, const float *indir, float
 // input arrays are 5d [x,y,dx,dy,lambda] where dx and dy are the direction in
 // two-plane parametrization (that is the third component of the direction would be 1.0).
 // units are millimeters for lengths and micrometers for the wavelength (so visible light is about 0.4--0.7)
-static inline void lens_evaluate(const float *in, float *out)
+// returns the transmittance computed from the polynomial.
+static inline float lens_evaluate(const float *in, float *out)
 {
   __attribute__ ((unused)) const float x = in[0], y = in[1], dx = in[2], dy = in[3], lambda = in[4];
 #include "pt_evaluate.h"
-  out[0] = out_x; out[1] = out_y; out[2] = out_dx; out[3] = out_dy; out[4] = lambda;
+  out[0] = out_x; out[1] = out_y; out[2] = out_dx; out[3] = out_dy;
+  return MAX(0.0f, out_transmittance);
 }
 
 // evaluates from the sensor (in) to the aperture (out) only
-static inline void lens_evaluate_aperture(const float *in, float *out)
+// returns the transmittance.
+static inline float lens_evaluate_aperture(const float *in, float *out)
 {
   __attribute__ ((unused)) const float x = in[0], y = in[1], dx = in[2], dy = in[3], lambda = in[4];
 #include "pt_evaluate_aperture.h"
-  out[0] = out_x; out[1] = out_y; out[2] = out_dx; out[3] = out_dy; out[4] = lambda;
+  out[0] = out_x; out[1] = out_y; out[2] = out_dx; out[3] = out_dy;
+  return MAX(0.0f, out_transmittance);
 }
 
 // solves for the two directions [dx,dy], keeps the two positions [x,y] and the
@@ -85,19 +89,21 @@ static inline void lens_evaluate_aperture(const float *in, float *out)
 // in: point on sensor. out: point on aperture.
 static inline void lens_pt_sample_aperture(float *in, float *out, float dist)
 {
-  __attribute__ ((unused)) float out_x = out[0], out_y = out[1], out_dx = out[2], out_dy = out[3], out_lambda = out[4];
+  __attribute__ ((unused)) float out_x = out[0], out_y = out[1], out_dx = out[2], out_dy = out[3], out_transmittance = 1.0f;
   __attribute__ ((unused)) float x = in[0], y = in[1], dx = in[2], dy = in[3], lambda = in[4];
 #include "pt_sample_aperture.h"
   // directions may have changed, copy all to be sure.
-  out[0] = out_x; out[1] = out_y; out[2] = out_dx; out[3] = out_dy; out[4] = out_lambda;
-  in[0] = x; in[1] = y; in[2] = dx; in[3] = dy; in[4] = lambda;
+  out[0] = out_x; out[1] = out_y; out[2] = out_dx; out[3] = out_dy;
+  in[0] = x; in[1] = y; in[2] = dx; in[3] = dy;
 }
 
 // solves for a sensor position give a scene point and an aperture point
-static inline void lens_lt_sample_aperture(
+// returns transmittance from sensor to outer pupil
+static inline float lens_lt_sample_aperture(
     const float *scene,   // 3d point in scene in camera space
     const float *ap,      // 2d point on aperture (in camera space, z is known)
     float *sensor,        // output point and direction on sensor plane/plane
+    float *out,           // output point and direction on outer pupil
     const float lambda)   // wavelength
 {
   const float scene_x = scene[0], scene_y = scene[1], scene_z = scene[2];
@@ -105,6 +111,7 @@ static inline void lens_lt_sample_aperture(
   float x = 0, y = 0, dx = 0, dy = 0;
 #include "lt_sample_aperture.h"
   sensor[0] = x; sensor[1] = y; sensor[2] = dx; sensor[3] = dy; sensor[4] = lambda;
+  return MAX(0.0f, out[4]);
 }
 
 // jacobian of polynomial mapping sensor to outer pupil. in[]: sensor point/direction/lambda.
@@ -116,7 +123,7 @@ static inline void lens_evaluate_jacobian(const float *in, float *J)
   J[5]  = dx10; J[6]  = dx11; J[7]  = dx12; J[8]  = dx13; J[9]  = dx14;
   J[10] = dx20; J[11] = dx21; J[12] = dx22; J[13] = dx23; J[14] = dx24;
   J[15] = dx30; J[16] = dx31; J[17] = dx32; J[18] = dx33; J[19] = dx34;
-  // J[20] = dx40; J[21] = dx41; J[22] = dx42; J[23] = dx43; J[24] = dx44;
+  J[20] = dx40; J[21] = dx41; J[22] = dx42; J[23] = dx43; J[24] = dx44;
 }
 
 static inline void lens_evaluate_aperture_jacobian(const float *in, float *J)
@@ -127,7 +134,7 @@ static inline void lens_evaluate_aperture_jacobian(const float *in, float *J)
   J[5]  = dx10; J[6]  = dx11; J[7]  = dx12; J[8]  = dx13; J[9]  = dx14;
   J[10] = dx20; J[11] = dx21; J[12] = dx22; J[13] = dx23; J[14] = dx24;
   J[15] = dx30; J[16] = dx31; J[17] = dx32; J[18] = dx33; J[19] = dx34;
-  // J[20] = dx40; J[21] = dx41; J[22] = dx42; J[23] = dx43; J[24] = dx44;
+  J[20] = dx40; J[21] = dx41; J[22] = dx42; J[23] = dx43; J[24] = dx44;
 }
 
 static inline float lens_det_sensor_to_aperture(const float *sensor, const float focus)

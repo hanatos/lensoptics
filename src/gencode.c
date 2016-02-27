@@ -25,37 +25,33 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  const char *varnames[poly_num_vars] =
-  {
-    "x",
-    "y",
-    "dx",
-    "dy",
-    "transmittance"
-  };
+  const char *varnames_in[poly_num_vars] =
+  { "x", "y", "dx", "dy", "lambda" };
+  const char *varnames_out[poly_num_vars] =
+  { "x", "y", "dx", "dy", "transmittance" };
 
   f = fopen("pt_evaluate.h", "wb");
-  print_poly_system_code(f, &poly, varnames);
+  print_poly_system_code(f, &poly, varnames_in, varnames_out);
   fclose(f);
 
   f = fopen("pt_evaluate_jacobian.h", "wb");
-  print_jacobian(f, &poly, varnames);
+  print_jacobian(f, &poly, varnames_in);
   fclose(f);
 
   f = fopen("pt_evaluate_aperture.h", "wb");
-  print_poly_system_code(f, &poly_ap, varnames);
+  print_poly_system_code(f, &poly_ap, varnames_in, varnames_out);
   fclose(f);
 
   f = fopen("pt_evaluate_aperture_jacobian.h", "wb");
-  print_jacobian(f, &poly_ap, varnames);
+  print_jacobian(f, &poly_ap, varnames_in);
   fclose(f);
 
   f = fopen("pt_sample_aperture.h", "wb");
-  print_pt_sample_aperture(f, &poly_ap, varnames);
+  print_pt_sample_aperture(f, &poly_ap, varnames_in, varnames_out);
   fclose(f);
 
   f = fopen("lt_sample_aperture.h", "wb");
-  print_lt_sample_aperture(f, &poly, &poly_ap, varnames);
+  print_lt_sample_aperture(f, &poly, &poly_ap, varnames_in, varnames_out);
   fclose(f);
 
   char name[512];
