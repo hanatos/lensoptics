@@ -34,6 +34,8 @@ static int screenshot = 0;
 static int draw_solve_omega = 0;
 static int draw_raytraced = 1;
 static int draw_polynomials = 1;
+static int width = 1600;
+static int height = 800;
 
 static gboolean
 motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data)
@@ -132,13 +134,10 @@ stroke_with_pencil(cairo_t *cr, float scale, float line_width)
 static gboolean
 expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
 {
-  int width, height;
   cairo_t *cr = 0;
   cairo_surface_t *cst = 0;
   if(screenshot)
   {
-    width = 800;
-    height = 400;
     cst = cairo_pdf_surface_create("screenshot.pdf", width, height);//cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
     cr = cairo_create(cst);
     cairo_set_source_rgb(cr, 1, 1, 1);
@@ -398,12 +397,12 @@ main(int argc, char *argv[])
 
     window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), "lens simulation");
-    gtk_window_resize(GTK_WINDOW(window), 800, 400);
+    gtk_window_resize(GTK_WINDOW(window), width, height);
     gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
 
     GtkWidget *area = gtk_drawing_area_new();
     gtk_container_add(GTK_CONTAINER(window), area);
-    gtk_drawing_area_size(GTK_DRAWING_AREA(area), 800, 400);
+    gtk_drawing_area_size(GTK_DRAWING_AREA(area), width, height);
     gtk_widget_add_events(GTK_WIDGET(area), GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_LEAVE_NOTIFY_MASK);
 
     g_signal_connect(area, "expose-event", G_CALLBACK(expose), NULL);

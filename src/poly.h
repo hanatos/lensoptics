@@ -216,20 +216,8 @@ int poly_get_coeffs(const poly_t *p, const int max_degree, float *coeff)
 int poly_system_get_coeffs(const poly_system_t *s, const int max_degree, float *coeff)
 {
   int cnt = 0;
-  for(int j=0;j<poly_num_vars-1;j++) // don't dump lambda == lambda
-  {
-    for(int t=0;t<s->poly[j].num_terms;t++)
-    {
-      int degree = 0;
-      for(int k=0;k<poly_num_vars;k++) degree += s->poly[j].term[t].exp[k];
-      if(degree <= max_degree)
-      {
-        if(coeff) coeff[cnt] = s->poly[j].term[t].coeff;
-        cnt++;
-      }
-      else break;
-    }
-  }
+  for(int j=0;j<poly_num_vars;j++) // don't dump lambda == lambda
+    cnt += poly_get_coeffs(s->poly + j, max_degree, coeff ? coeff + cnt : 0);
   return cnt;
 }
 
@@ -259,20 +247,8 @@ int poly_set_coeffs(poly_t *p, const int max_degree, const float *coeff)
 int poly_system_set_coeffs(poly_system_t *s, const int max_degree, const float *coeff)
 {
   int cnt = 0;
-  for(int j=0;j<poly_num_vars-1;j++) // don't dump lambda = lambda poly
-  {
-    for(int t=0;t<s->poly[j].num_terms;t++)
-    {
-      int degree = 0;
-      for(int k=0;k<poly_num_vars;k++) degree += s->poly[j].term[t].exp[k];
-      if(degree <= max_degree)
-      {
-        s->poly[j].term[t].coeff = coeff[cnt];
-        cnt++;
-      }
-      else break; // input was sorted by degree. first > max is the end of our list.
-    }
-  }
+  for(int j=0;j<poly_num_vars;j++)
+    cnt += poly_set_coeffs(s->poly+j, max_degree, coeff ? coeff + cnt : 0);
   return cnt;
 }
 

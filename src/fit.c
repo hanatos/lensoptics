@@ -203,6 +203,7 @@ int main(int argc, char *arg[])
   tmp.reference = sample;
   tmp.poly = &poly;
   tmp.last_valid_param = (float *)malloc(sizeof(float)*coeff_size);
+  const char *outvname[] = {"x", "y", "dx", "dy", "transmittance"};
 
   // ===================================================================================================
   // evaluate poly sensor -> outer pupil
@@ -242,10 +243,11 @@ int main(int argc, char *arg[])
 //        poly_copy(poly_backup.poly+j, poly.poly+j);
 //        poly_get_coeffs(poly_backup.poly+j, max_degree, coeff+sumCoeffs);
 //      }
-      fprintf(stderr, "error: %g\n", info[1]);
+      fprintf(stderr, "%s: %.4f ", outvname[j], info[1]);
       errorSum += max(0.0f, info[1]);
     }
-    fprintf(stderr, "degree %d has %d samples, fitting error %g\n", max_degree, sumCoeffs, errorSum);
+    if(pass2) fprintf(stderr, "\n%d coeffs, fitting error %g\n", sumCoeffs, errorSum);
+    else fprintf(stderr, "\ndegree %d has %d coeffs, fitting error %g\n", max_degree, sumCoeffs, errorSum);
   }
 
   // write optimised poly
@@ -305,10 +307,11 @@ int main(int argc, char *arg[])
 //        poly_copy(poly_backup.poly+j, poly_ap.poly+j);
 //        poly_get_coeffs(poly_backup.poly+j, max_degree, coeff+sumCoeffs);
 //      }
-      fprintf(stderr, "error: %g\n", info[1]);
+      fprintf(stderr, "%s: %.4f ", outvname[j], info[1]);
       errorSum += max(0.0f, info[1]);
     }
-    fprintf(stderr, "degree %d has %d samples, fitting error %g\n", max_degree, sumCoeffs, errorSum);
+    if(pass2) fprintf(stderr, "\n%d coeffs, fitting error %g\n", sumCoeffs, errorSum);
+    else fprintf(stderr, "\ndegree %d has %d coeffs, fitting error %g\n", max_degree, sumCoeffs, errorSum);
   }
 
   poly_system_simplify(&poly_backup);
