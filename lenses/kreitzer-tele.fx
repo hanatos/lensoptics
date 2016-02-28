@@ -3,6 +3,7 @@
 #FOV		7.2				// diagonal FOV
 #
 #// SCALE EVERY DIMENSION BY 4 TO OBTAIN 390MM TELE FOR FULL-FORMAT FILM
+#!scale 4.0
 #
 #// radius	thickness(/:var)	matl		index	vno		sa		ry(opt)
 33.072		2.366				C3			1.518	59.0	8.9

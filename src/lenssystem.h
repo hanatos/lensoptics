@@ -50,6 +50,7 @@ int lens_configuration(lens_element_t *l, const char *filename, int max)
 
   float last_ior = 1.0f;
   float last_vno = 0.0f;
+  float scale = 1.0f;
   while(1)
   {
     lens_element_t lens;
@@ -60,21 +61,26 @@ int lens_configuration(lens_element_t *l, const char *filename, int max)
 
     char *in = line;
 
+    if(!strncmp(line, "#!scale", 7))
+    {
+      scale = atof(line + 8);
+      continue;
+    }
     // munch comment
     if(!strncmp(line, "//", 2) || !strncmp(line, "#", 1)) continue;
     while(in[0] == '\t' || in[0] == ' ') in++;
-    lens.lens_radius = strtof(in, &in);
+    lens.lens_radius = scale * strtof(in, &in);
     if(lens.lens_radius == 0.0f) break;
     while(in[0] == '\t' || in[0] == ' ') in++;
-    lens.thickness_short = strtof(in, &in);
+    lens.thickness_short = scale * strtof(in, &in);
     while(in[0] == '\t' || in[0] == ' ') in++;
     if(in[0] == '/')
-      lens.thickness_mid = strtof(in+1, &in);
+      lens.thickness_mid = scale * strtof(in+1, &in);
     else
       lens.thickness_mid = lens.thickness_short;
     while(in[0] == '\t' || in[0] == ' ') in++;
     if(in[0] == '/')
-      lens.thickness_long = strtof(in+1, &in);
+      lens.thickness_long = scale * strtof(in+1, &in);
     else
       lens.thickness_long = lens.thickness_short;
     if(lens.thickness_short == 0.0f) break;
@@ -112,7 +118,7 @@ int lens_configuration(lens_element_t *l, const char *filename, int max)
     if(lens.ior == 0.0f) break;
 
     while(in[0] == '\t' || in[0] == ' ') in++;
-    lens.housing_radius = strtof(in, &in);
+    lens.housing_radius = scale * strtof(in, &in);
     if(lens.housing_radius == 0.0f) break;
     l[cnt++] = lens;
 
