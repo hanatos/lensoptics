@@ -1,7 +1,12 @@
 #!/bin/bash
 degree=5
 suffix=""
-for i in lenses/*.fx
+lenses=$1
+if [ "$1" == "" ]
+then
+  lenses=lenses/*.fx
+fi
+for i in $lenses
 do
   lens1=${i#*/}
   lens=${lens1%.*}

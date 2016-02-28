@@ -2,7 +2,7 @@
 # Fig. 3 : AF DX Fisheye-Nikkor 10.5mm f/2.8G ED.
 # Definition of the optical system (data in black taken from US Patent 7,161,746 B2).
 #10000    0.100 air                  500
-85.00    2.040 abbe  1.62041 60.29  28
+85.00    2.040 abbe  1.62041 60.29  26
 16.45    8.320 air                  15.5
 61.18    1.700 abbe  1.81600 46.63  15
 20.15   10.316 air                  15
