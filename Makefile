@@ -29,6 +29,15 @@ ext/levmar-2.6/liblevmar.a:
 fit: Makefile src/fit.c ${HEADERS} ext/levmar-2.6/liblevmar.a
 	${CC} ${OPTFLAGS} ${CFLAGS} src/fit.c -o fit ${LDFLAGS} ${LD_LEVMAR}
 
+genpoly: Makefile src/genpoly.c ${HEADERS}
+	${CC} ${OPTFLAGS} ${CFLAGS} src/genpoly.c -o genpoly ${LDFLAGS}
+
+parsepoly: Makefile src/parsepoly.c ${HEADERS}
+	${CC} ${OPTFLAGS} ${CFLAGS} src/parsepoly.c -o parsepoly ${LDFLAGS}
+
+printpoly: Makefile src/printpoly.c ${HEADERS}
+	${CC} ${OPTFLAGS} ${CFLAGS} src/printpoly.c -o printpoly ${LDFLAGS}
+
 simplify: Makefile src/simplify.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/simplify.c -o simplify ${LDFLAGS}
 
