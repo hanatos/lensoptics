@@ -51,7 +51,9 @@ void print_pt_sample_aperture(FILE *f, const poly_system_t *system,
   fprintf(f, "  const float %s = %s + dist * %s;\n", begin_var[1], vnamei[1], vnamei[3]);
   fprintf(f, "  const float %s = %s;\n", begin_var[2], vnamei[2]);
   fprintf(f, "  const float %s = %s;\n", begin_var[3], vnamei[3]);
-  fprintf(f, "  const float %s = %s;\n", begin_var[4], vnamei[4]);
+  // wavelength may be unused for lenses such as lensbaby, where the aperture comes right after
+  // the sensor, without glass elements in between:
+  fprintf(f, "  __attribute__((unused)) const float %s = %s;\n", begin_var[4], vnamei[4]);
 
   // 2) evaluate what we get x1' = P(x0, omega0, ..)
   for(int k=0;k<4;k++)
