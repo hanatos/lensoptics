@@ -9,6 +9,8 @@
 typedef struct lens_element_t
 {
   float lens_radius, thickness_short, thickness_mid, thickness_long, ior, vno, housing_radius;
+  float aspheric_correction_coefficients[4];
+  int aspheric;
   int anamorphic;
   char material[32];
 }
@@ -120,10 +122,26 @@ int lens_configuration(lens_element_t *l, const char *filename, int max)
     while(in[0] == '\t' || in[0] == ' ') in++;
     lens.housing_radius = scale * strtof(in, &in);
     if(lens.housing_radius == 0.0f) break;
+    
+    lens.aspheric = 0;
+    for(int i = 0; i < 4; i++)
+      lens.aspheric_correction_coefficients[i] = 0;
+    
+    while(in[0] == '\t' || in[0] == ' ') in++;
+    if(!strncmp(in, "#!aspheric=", 11))
+    {
+      in += 11;
+      lens.aspheric = strtol(in, &in, 10);
+      // munch comma
+      in++;
+      for(int i = 0; i < 4; i++, in++)
+        lens.aspheric_correction_coefficients[i] = strtof(in, &in);
+    }
+
     l[cnt++] = lens;
 
     // fprintf(stderr, "lens[%d] %g %g %s %g %g %g\n", cnt-1, lens.lens_radius, lens.thickness_short, lens.material, lens.ior, lens.vno, lens.housing_radius);
-
+ 
     if(cnt >= max) break;
   }
   fclose(f);

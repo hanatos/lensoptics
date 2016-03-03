@@ -5,7 +5,7 @@
 #include <cairo.h>
 
 // evalute sensor to outer pupil:
-static inline int evaluate_draw(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out, cairo_t *cr, float scale, int dim_up)
+static inline int evaluate_draw(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out, cairo_t *cr, float scale, int dim_up, int draw_aspherical)
 {
   int error = 0;
   float n1 = 1.0f;
@@ -32,6 +32,8 @@ static inline int evaluate_draw(const lens_element_t *lenses, const int lenses_c
 
     if(lenses[k].anamorphic)
       error |= cylindrical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
+    else if(draw_aspherical)
+      error |= aspherical(pos, dir, &t, R, distsum + R, lenses[k].aspheric, lenses[k].aspheric_correction_coefficients, lenses[k].housing_radius, n);
     else
       error |= spherical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
 
@@ -73,7 +75,7 @@ static inline int evaluate_draw(const lens_element_t *lenses, const int lenses_c
 }
 
 // evaluate scene to sensor:
-static inline int evaluate_reverse_draw(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out, cairo_t *cr, float scale, int dim_up)
+static inline int evaluate_reverse_draw(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out, cairo_t *cr, float scale, int dim_up, int draw_aspherical)
 {
   int error = 0;
   float n1 = 1.0f;
@@ -105,6 +107,8 @@ static inline int evaluate_reverse_draw(const lens_element_t *lenses, const int 
 
     if(lenses[k].anamorphic)
       error |= cylindrical(pos, dir, &t, R, distsum - R, lenses[k].housing_radius, n);
+    else if(draw_aspherical)
+      error |= aspherical(pos, dir, &t, R, distsum - R, lenses[k].aspheric, lenses[k].aspheric_correction_coefficients, lenses[k].housing_radius, n);
     else
       error |= spherical(pos, dir, &t, R, distsum - R, lenses[k].housing_radius, n);
 

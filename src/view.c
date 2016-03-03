@@ -37,6 +37,8 @@ static int draw_polynomials = 1;
 static int width = 1600;
 static int height = 800;
 
+static int draw_aspheric = 1;
+
 static gboolean
 motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data)
 {
@@ -63,6 +65,13 @@ key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data)
   {
     fprintf(stderr, "saving screenshot.pdf\n");
     screenshot = 1;
+    gtk_widget_queue_draw(widget);
+    return TRUE;
+  }
+  else if(event->keyval == GDK_KEY_a)
+  {
+    draw_aspheric = !draw_aspheric;
+    fprintf(stderr, "using %sspherical lenses\n", draw_aspheric?"a":"");
     gtk_widget_queue_draw(widget);
     return TRUE;
   }
@@ -202,12 +211,39 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       float off2 = rad2 > 0.0f ? 0.0f : M_PI;
       float alpha  = asinf(fminf(1.0f, fmaxf(-1.0f, fabsf(hrad/rad))));
       float alpha2 = asinf(fminf(1.0f, fmaxf(-1.0f, fabsf(hrad2/rad2))));
-
-      cairo_arc(cr, pos-rad, 0.0f, fabsf(rad), off-alpha, off+alpha);
-      if(rad * rad2 > 0.0f)
-        cairo_arc_negative(cr, pos-t-rad2, 0.0f, fabsf(rad2), off2+alpha2, off2-alpha2);
+      if(draw_aspheric)
+      {
+        const int num_steps = 50;
+        for(int j = 0; j <= num_steps; j++)
+        {
+          float y[] = {hrad*(2 * j / (float)num_steps - 1), 0};
+          float *coeff = lenses[i].aspheric_correction_coefficients;
+          float x = pos-evaluate_aspherical(y, rad, lenses[i].aspheric-1, coeff);
+          cairo_line_to(cr, x, y[0]);
+        }
+      }
       else
-        cairo_arc(cr, pos-t-rad2, 0.0f, fabsf(rad2), off2-alpha2, off2+alpha2);
+      {
+        cairo_arc(cr, pos-rad, 0.0f, fabsf(rad), off-alpha, off+alpha);
+      }
+      if(draw_aspheric)
+      {
+        const int num_steps = 50;
+        for(int j = num_steps; j >= 0; j--)
+        {
+          float y[] = {hrad2*(2 * j / (float)num_steps - 1), 0};
+          float *coeff = lenses[i+1].aspheric_correction_coefficients;
+          float x = pos-t-evaluate_aspherical(y, rad2, lenses[i+1].aspheric-1, coeff);
+          cairo_line_to(cr, x, y[0]);
+        }
+      }
+      else
+      {
+        if(rad * rad2 > 0.0f)
+          cairo_arc_negative(cr, pos-t-rad2, 0.0f, fabsf(rad2), off2+alpha2, off2-alpha2);
+        else
+          cairo_arc(cr, pos-t-rad2, 0.0f, fabsf(rad2), off2-alpha2, off2+alpha2);
+      }
       cairo_close_path(cr);
       if(screenshot)
         cairo_set_source_rgba(cr, 0.2f, 0.2f, 0.3f, .5f);
@@ -227,7 +263,21 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       cairo_save(cr);
       cairo_rectangle(cr, pos-rad-2, -hrad, 2*rad+4, 2*hrad);
       cairo_clip(cr);
-      cairo_arc(cr, pos-rad, 0.0f, fabsf(rad), .0f, 2.0f*M_PI);
+      if(draw_aspheric)
+      {
+        const int num_steps = 50;
+        for(int j = 0; j < num_steps; j++)
+        {
+          float y[] = {hrad*(2 * j / (float)num_steps - 1), 0};
+          float *coeff = lenses[i].aspheric_correction_coefficients;
+          float x = pos-evaluate_aspherical(y, rad, lenses[i].aspheric-1, coeff);
+          cairo_line_to(cr, x, y[0]);
+        }
+      }
+      else
+      {
+        cairo_arc(cr, pos-rad, 0.0f, fabsf(rad), .0f, 2.0f*M_PI);
+      }
       stroke_with_pencil(cr, scale, 40./width);
       cairo_restore(cr);
     }
@@ -283,9 +333,9 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
 
     int error = 0;
     if(draw_raytraced)
-      error = evaluate_reverse_draw(lenses, lenses_cnt, zoom, inrt, outrt, cr, scale, dim_up);
+      error = evaluate_reverse_draw(lenses, lenses_cnt, zoom, inrt, outrt, cr, scale, dim_up, draw_aspheric);
     else
-      error = evaluate_reverse(lenses, lenses_cnt, zoom, inrt, outrt);
+      error = evaluate_reverse(lenses, lenses_cnt, zoom, inrt, outrt, draw_aspheric);
 
     // ray color:
     hsl[0] = k/(num_rays+1.);
@@ -344,7 +394,7 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       outrt[2] = -outrt[2];
       outrt[3] = -outrt[3];
       outrt[4] = lambda;
-      error = evaluate_draw(lenses, lenses_cnt, zoom, outrt, inrt, cr, scale, dim_up);
+      error = evaluate_draw(lenses, lenses_cnt, zoom, outrt, inrt, cr, scale, dim_up, draw_aspheric);
     }
   }
   // fprintf(stderr, "total variation of errors: (%f %f)\n", variation[0], variation[1]);

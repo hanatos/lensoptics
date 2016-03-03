@@ -38,10 +38,9 @@ static inline void raytrace_multiply(float *v, const float s)
   for(int k = 0; k < 3; k++) v[k] *= s;
 }
 
-static inline int propagate(float *pos, const float *dir, const float dist)
+static inline void propagate(float *pos, const float *dir, const float dist)
 {
   for(int i=0;i<3;i++) pos[i] += dir[i] * dist;
-  return 0;
 }
 
 
@@ -61,13 +60,69 @@ static inline int spherical(float *pos, float *dir, float *dist, float R, float 
   else t = fminf(t0, t1);
   if(t < -1e-4f) return 16;
 
-  error |= propagate(pos, dir, t);
+  propagate(pos, dir, t);
   error |= (int)(pos[0]*pos[0] + pos[1]*pos[1] > housing_rad*housing_rad)<<4;
 
   normal[0] = pos[0]/R;
   normal[1] = pos[1]/R;
   normal[2] = (pos[2] - center)/R;
 
+  *dist = t;
+  return error;
+}
+
+static inline float evaluate_aspherical(const float *pos, const float R, const int k, const float *correction)
+{
+  float h = sqrtf(pos[0]*pos[0]+pos[1]*pos[1]);
+  float hr = h / R;
+  float h2 = h*h;
+  float h4 = h2*h2;
+  float h6 = h4*h2;
+  float h8 = h4*h4;
+  float h10 = h8*h2;
+  float z = h*hr/(1+sqrtf(max(0.0,1-(1+k)*hr*hr)))+correction[0]*h4+correction[1]*h6+correction[2]*h8+correction[3]*h10;
+  return z;
+}
+
+static inline float evaluate_aspherical_derivative(const float *pos, const float R, const int k, const float *correction)
+{
+  float h = sqrtf(pos[0]*pos[0]+pos[1]*pos[1]);
+  float hr = h / R;
+  float h2 = h*h;
+  float h3 = h2*h;
+  float h5 = h3*h2;
+  float h7 = h5*h2;
+  float h9 = h7*h2;
+  float z = 2*hr/(1+sqrtf(max(0.0,1-(1+k)*hr*hr)))+
+    hr*hr*hr*(k+1)/(sqrtf(max(0.0,1-(1+k)*hr*hr))*powf(sqrtf(max(0.0,1-(1+k)*hr*hr))+1, 2))+
+    4*correction[0]*h3+6*correction[1]*h5+8*correction[2]*h7+10*correction[3]*h9;
+  return z;
+}
+
+static inline int aspherical(float *pos, float *dir, float *dist, const float R, const float center, const int k, const float *correction, const float housing_rad, float *normal)
+{
+  //first intersect sphere, then do correction iteratively
+  float t = 0;
+  int error = spherical(pos, dir, &t, R, center, housing_rad, normal);
+  
+  float position_error = 1e7;
+
+  float *corr = correction;
+  for(int i = 0; i < 100; i++)
+  {
+    position_error = pos[2]-(center+R+evaluate_aspherical(pos, -R, k, corr));
+    float tErr = position_error;
+    t += tErr;
+    propagate(pos, dir, tErr);
+    if(fabs(position_error) < 1e-4) break;
+  } 
+  //TODO: calculate correct normal
+  float dz = evaluate_aspherical_derivative(pos, -R, k, corr);
+  normal[0] = -pos[0]/sqrt(pos[0]*pos[0]+pos[1]*pos[1])*dz;
+  normal[1] = -pos[1]/sqrt(pos[0]*pos[0]+pos[1]*pos[1])*dz;
+  normal[2] /= fabs(normal[2]);
+  raytrace_normalise(normal);
+  
   *dist = t;
   return error;
 }
@@ -87,7 +142,7 @@ static inline int cylindrical(float *pos, float *dir, float *dist, float R, floa
   else if(R < 0.0f)
     t = (-b+sqrtf(discr))/(2*a);
 
-  error |= propagate(pos, dir, t);
+  propagate(pos, dir, t);
   error |= (int)(pos[0]*pos[0] + pos[1]*pos[1] > housing_rad*housing_rad)<<4;
 
   normal[0] = pos[0]/R;
@@ -196,7 +251,7 @@ static inline void csToSphere(const float *inpos, const float *indir, float *out
 }
 
 // evalute sensor to outer pupil acounting for fresnel:
-static inline int evaluate(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out)
+static inline int evaluate(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out, int aspheric)
 {
   int error = 0;
   float n1 = 1.0f;
@@ -220,6 +275,8 @@ static inline int evaluate(const lens_element_t *lenses, const int lenses_cnt, c
 
     if(lenses[k].anamorphic)
       error |= cylindrical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
+    else if(aspheric)
+      error |= aspherical(pos, dir, &t, R, distsum + R, lenses[k].aspheric, lenses[k].aspheric_correction_coefficients, lenses[k].housing_radius, n);
     else
       error |= spherical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
 
@@ -241,7 +298,7 @@ static inline int evaluate(const lens_element_t *lenses, const int lenses_cnt, c
 }
 
 // evaluate scene to sensor:
-static inline int evaluate_reverse(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out)
+static inline int evaluate_reverse(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out, int aspheric)
 {
   int error = 0;
   float n1 = 1.0f;
@@ -265,6 +322,8 @@ static inline int evaluate_reverse(const lens_element_t *lenses, const int lense
 
     if(lenses[k].anamorphic)
       error |= cylindrical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
+    else if(aspheric)
+      error |= aspherical(pos, dir, &t, R, distsum + R, lenses[k].aspheric, lenses[k].aspheric_correction_coefficients, lenses[k].housing_radius, n);
     else
       error |= spherical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
 
@@ -288,7 +347,7 @@ static inline int evaluate_reverse(const lens_element_t *lenses, const int lense
   return error;
 }
 
-static inline int evaluate_aperture(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out)
+static inline int evaluate_aperture(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out, int aspheric)
 {
   int error = 0;
   float n1 = 1.0f;
@@ -315,6 +374,8 @@ static inline int evaluate_aperture(const lens_element_t *lenses, const int lens
 
     if(lenses[k].anamorphic)
       error |= cylindrical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
+    else if(aspheric)
+      error |= aspherical(pos, dir, &t, R, distsum + R, lenses[k].aspheric, lenses[k].aspheric_correction_coefficients, lenses[k].housing_radius, n);
     else
       error |= spherical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
 
@@ -339,7 +400,7 @@ static inline int evaluate_aperture(const lens_element_t *lenses, const int lens
 }
 
 // evaluate scene to sensor:
-static inline int evaluate_aperture_reverse(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out)
+static inline int evaluate_aperture_reverse(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out, int aspheric)
 {
   int error = 0;
   float n1 = 1.0f;
@@ -362,6 +423,8 @@ static inline int evaluate_aperture_reverse(const lens_element_t *lenses, const 
 
     if(lenses[k].anamorphic)
       error |= cylindrical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
+    else if(aspheric)
+      error |= aspherical(pos, dir, &t, R, distsum + R, lenses[k].aspheric, lenses[k].aspheric_correction_coefficients, lenses[k].housing_radius, n);
     else
       error |= spherical(pos, dir, &t, R, distsum + R, lenses[k].housing_radius, n);
 
