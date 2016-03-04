@@ -218,27 +218,20 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
         {
           float y[] = {hrad*(2 * j / (float)num_steps - 1), 0};
           float *coeff = lenses[i].aspheric_correction_coefficients;
-          float x = pos-evaluate_aspherical(y, rad, lenses[i].aspheric-1, coeff);
+          float x = pos-evaluate_aspherical(y, rad, lenses[i].aspheric, coeff);
+          cairo_line_to(cr, x, y[0]);
+        }
+        for(int j = num_steps; j >= 0; j--)
+        {
+          float y[] = {hrad2*(2 * j / (float)num_steps - 1), 0};
+          float *coeff = lenses[i+1].aspheric_correction_coefficients;
+          float x = pos-t-evaluate_aspherical(y, rad2, lenses[i+1].aspheric, coeff);
           cairo_line_to(cr, x, y[0]);
         }
       }
       else
       {
         cairo_arc(cr, pos-rad, 0.0f, fabsf(rad), off-alpha, off+alpha);
-      }
-      if(draw_aspheric)
-      {
-        const int num_steps = 50;
-        for(int j = num_steps; j >= 0; j--)
-        {
-          float y[] = {hrad2*(2 * j / (float)num_steps - 1), 0};
-          float *coeff = lenses[i+1].aspheric_correction_coefficients;
-          float x = pos-t-evaluate_aspherical(y, rad2, lenses[i+1].aspheric-1, coeff);
-          cairo_line_to(cr, x, y[0]);
-        }
-      }
-      else
-      {
         if(rad * rad2 > 0.0f)
           cairo_arc_negative(cr, pos-t-rad2, 0.0f, fabsf(rad2), off2+alpha2, off2-alpha2);
         else
@@ -270,7 +263,7 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
         {
           float y[] = {hrad*(2 * j / (float)num_steps - 1), 0};
           float *coeff = lenses[i].aspheric_correction_coefficients;
-          float x = pos-evaluate_aspherical(y, rad, lenses[i].aspheric-1, coeff);
+          float x = pos-evaluate_aspherical(y, rad, lenses[i].aspheric, coeff);
           cairo_line_to(cr, x, y[0]);
         }
       }
