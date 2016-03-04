@@ -259,7 +259,7 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       if(draw_aspheric)
       {
         const int num_steps = 50;
-        for(int j = 0; j < num_steps; j++)
+        for(int j = 0; j <= num_steps; j++)
         {
           float y[] = {hrad*(2 * j / (float)num_steps - 1), 0};
           float *coeff = lenses[i].aspheric_correction_coefficients;
