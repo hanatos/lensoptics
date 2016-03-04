@@ -9,23 +9,21 @@ int main(int argc, char *arg[])
     fprintf(stderr, "usage: %s input.poly\n", arg[0]);
     exit(-1);
   }
-  
+
   poly_system_t s;
   poly_system_read(&s, arg[1]);
-  
+
+  FILE *f = stdout;
+
   for(int i = 0; i < poly_num_vars; i++)
   {
-    static const char *vn[poly_num_vars] = {"x0", "x1", "x2", "x3", "x4"};
-    fprintf(stdout, "%s = ", vn[i]);
-    for(int t=0;t<p->num_terms;t++)
+    poly_t *p = s.poly+i;
+    poly_term_t *term = p->term;
+    for(int t=0;t<p->num_terms;t++,term++)
     {
-      fprintf(f, " + %g ", p->term[t].coeff);
-      for(int k=0;k<poly_num_vars;k++)
-        if(p->term[t].exp[k] == 1)
-          fprintf(f, "*%s", vname ? vname[k] : vn[k]);
-        else if(p->term[t].exp[k] > 0)
-          fprintf(f, "*lens_ipow(%s, %d)", vname ? vname[k] : vn[k], p->term[t].exp[k]);
+      fprintf(f, "%g,%d,%d,%d,%d,%d\n", term->coeff, term->exp[0], term->exp[1],
+        term->exp[2], term->exp[3], term->exp[4]);
     }
-    fprintf(stdout, "\n\n");
+    fprintf(f, "\n");
   }
 }
