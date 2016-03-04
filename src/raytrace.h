@@ -104,24 +104,38 @@ static inline int aspherical(float *pos, float *dir, float *dist, const float R,
   //first intersect sphere, then do correction iteratively
   float t = 0;
   int error = spherical(pos, dir, &t, R, center, housing_rad, normal);
-  
+
+  float rad = R;
+  float corr[4] = {correction[0], correction[1], correction[2], correction[3]};
+  if(fabs(center+R-pos[2]) > fabs(center-R-pos[2]))
+  {
+    rad = -R;
+    for(int i = 0; i < 4; i++) corr[i] = -corr[i];
+  }
+
   float position_error = 1e7;
+
 
   for(int i = 0; i < 100; i++)
   {
-    position_error = pos[2]-(center+R+evaluate_aspherical(pos, -R, k, correction));
-    float tErr = position_error;
+    position_error = rad+center-pos[2]-evaluate_aspherical(pos, rad, k, correction);
+    float tErr = position_error/dir[2];
     t += tErr;
     propagate(pos, dir, tErr);
     if(fabs(position_error) < 1e-4) break;
-  } 
-  //TODO: calculate correct normal
-  float dz = evaluate_aspherical_derivative(pos, -R, k, correction);
-  normal[0] = -pos[0]/sqrt(pos[0]*pos[0]+pos[1]*pos[1])*dz;
-  normal[1] = -pos[1]/sqrt(pos[0]*pos[0]+pos[1]*pos[1])*dz;
+  }
+
+
+  float dz = evaluate_aspherical_derivative(pos, rad, k, correction);
+  const float r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]);
+
+  if(normal[2] < 0) dz = -dz;
+  normal[0] = pos[0]/r*dz;
+  normal[1] = pos[1]/r*dz;
   normal[2] /= fabs(normal[2]);
+
   raytrace_normalise(normal);
-  
+
   *dist = t;
   return error;
 }
