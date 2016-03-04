@@ -14,6 +14,7 @@ static lens_element_t lenses[50];
 static int lenses_cnt = 0;
 static const float zoom = 0.0f;
 static int max_degree = 4;
+static int aspheric_elements = 1;
 
 static inline float ap(float x, int n, float p_dist, float p_rad, int dim)
 { // sample incoming pupil
@@ -178,7 +179,7 @@ int main(int argc, char *arg[])
     ray_in[2] -= ray_in[0] / p_dist;
     ray_in[3] -= ray_in[1] / p_dist;
     float out[5];
-    int error = evaluate(lenses, lenses_cnt, zoom, ray_in, out);
+    int error = evaluate(lenses, lenses_cnt, zoom, ray_in, out, aspheric_elements);
     if(!error)
     {
       for(int k=0;k<5;k++) sample_in[5*valid + k] = ray_in[k];
@@ -263,7 +264,7 @@ int main(int argc, char *arg[])
   {
     float *ray_in = sample_in+5*i;
     float out[5] = {0.0f};
-    int error = evaluate_aperture(lenses, lenses_cnt, zoom, ray_in, out);
+    int error = evaluate_aperture(lenses, lenses_cnt, zoom, ray_in, out, aspheric_elements);
     (void)error; // silence non-debug build warning
     assert(error == 0);
     for(int k=0;k<5;k++)

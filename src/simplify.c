@@ -10,6 +10,7 @@
 static lens_element_t lenses[50];
 static int lenses_cnt = 0;
 static float zoom = 0;
+static int aspheric_elements = 1;
 
 int main(int argc, char *arg[])
 {
@@ -59,7 +60,7 @@ int main(int argc, char *arg[])
     ray_in[2] -= ray_in[0] / p_dist;
     ray_in[3] -= ray_in[1] / p_dist;
     float out[5];
-    int error = evaluate(lenses, lenses_cnt, zoom, ray_in, out);
+    int error = evaluate(lenses, lenses_cnt, zoom, ray_in, out, aspheric_elements);
     if(!error)
     {
       for(int k=0;k<5;k++) sample_in[5*valid + k] = ray_in[k];

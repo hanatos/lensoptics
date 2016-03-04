@@ -5,6 +5,7 @@
 static lens_element_t lenses[50];
 static int lenses_cnt = 0;
 static const float zoom = 0.0f;
+static int aspheric_elements = 1;
 
 int main(int argc, char *arg[])
 {
@@ -44,7 +45,7 @@ int main(int argc, char *arg[])
     ray_in[3] -= ray_in[1] / p_dist;
     float out[5] = {0.0f, 0.0f, 0.0f, 0.0f, ray_in[4]};
     float poly_out[5] = {0.0f};
-    int error = evaluate(lenses, lenses_cnt, zoom, ray_in, out);
+    int error = evaluate(lenses, lenses_cnt, zoom, ray_in, out, aspheric_elements);
     if(!error)
     {
       poly_system_evaluate(&poly, ray_in, poly_out, 100);

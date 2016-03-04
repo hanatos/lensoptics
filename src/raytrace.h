@@ -107,17 +107,16 @@ static inline int aspherical(float *pos, float *dir, float *dist, const float R,
   
   float position_error = 1e7;
 
-  float *corr = correction;
   for(int i = 0; i < 100; i++)
   {
-    position_error = pos[2]-(center+R+evaluate_aspherical(pos, -R, k, corr));
+    position_error = pos[2]-(center+R+evaluate_aspherical(pos, -R, k, correction));
     float tErr = position_error;
     t += tErr;
     propagate(pos, dir, tErr);
     if(fabs(position_error) < 1e-4) break;
   } 
   //TODO: calculate correct normal
-  float dz = evaluate_aspherical_derivative(pos, -R, k, corr);
+  float dz = evaluate_aspherical_derivative(pos, -R, k, correction);
   normal[0] = -pos[0]/sqrt(pos[0]*pos[0]+pos[1]*pos[1])*dz;
   normal[1] = -pos[1]/sqrt(pos[0]*pos[0]+pos[1]*pos[1])*dz;
   normal[2] /= fabs(normal[2]);
