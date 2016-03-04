@@ -54,8 +54,8 @@ int main(int argc, char *arg[])
       const float rr = sqrtf(out[0]*out[0] + out[1]*out[1]);
       const float rp = sqrtf(poly_out[0]*poly_out[0] + poly_out[1]*poly_out[1]);
       // TODO: normalise to outer pupil radius
-      int binr = profile_cnt * rr/30.0;
-      int binp = profile_cnt * rp/30.0;
+      int binr = profile_cnt * rr/lenses[0].housing_radius;
+      int binp = profile_cnt * rp/lenses[0].housing_radius;
       profile_valr[binr] += intensity;
       profile_numr[binr] ++;
       profile_valp[binp] += poly_out[4];
