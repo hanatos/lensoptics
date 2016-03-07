@@ -237,6 +237,7 @@ int main(int argc, char *arg[])
         last_error[j] = info[1];
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly.poly+j, poly_backup.poly+j);
+        poly_set_coeffs(poly_backup.poly + j, max_degree, coeff + sumCoeffs - degree_coeff_size);
       }
 //      else
 //      {
@@ -301,6 +302,7 @@ int main(int argc, char *arg[])
         last_error[j] = info[1];
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly_ap.poly+j, poly_backup.poly+j);
+        poly_set_coeffs(poly_backup.poly + j, max_degree, coeff + sumCoeffs - degree_coeff_size);
       }
 //      else
 //      {
