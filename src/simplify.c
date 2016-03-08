@@ -36,7 +36,7 @@ int main(int argc, char *arg[])
   const float p_dist = lens_get_thickness(lenses + lenses_cnt-1, zoom);
   const float p_rad = lenses[lenses_cnt-1].housing_radius;
 
-  int max_degree = 9;
+  int max_degree = 14;
 
   const int coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
   float *coeff = (float *)malloc(sizeof(float)*coeff_size);
@@ -48,7 +48,7 @@ int main(int argc, char *arg[])
   // only rays that pass the apperture and reach the outer pupil are used for
   // calculating the polynomials error
   int valid = 0;
-  for(int i=0;i<sample_cnt;i++)
+  while(1)
   {
     const float u = drand48(), v = drand48(), w = drand48(), x = drand48(), y = drand48();
     float ray_in[] = {
@@ -70,38 +70,25 @@ int main(int argc, char *arg[])
     if(valid > max(1000, oversample*coeff_size)) break;
   }
 
-  // calculate reference evaluation of polynomial
-  fprintf(stderr, "[ sensor->outer pp ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
-  float *sample_ref = (float *)malloc(valid*sizeof(float)*5);
-  for(int i=0;i<valid;i++)
-    poly_system_evaluate(&poly, sample_in+5*i, sample_ref+5*i, max_degree);
-
-  // get (fitted) coefficients of original polynomial
-  poly_system_get_coeffs(&poly, max_degree, coeff);
+  // calculate error introduced by removing a term
   float *err = (float *)malloc(coeff_size*sizeof(float));
-  for(int i=0;i<coeff_size;i++)
+  int sum_terms = 0;
+
+  for(int variable = 0; variable < poly_num_vars; variable++)
   {
-    //set one of the coefficients to zero at a time
-    float curr_coeff = coeff[i];
-    coeff[i] = 0;
-    poly_system_set_coeffs(&poly, max_degree, coeff);
-
-    // evaluate the same rays as above and calculate the error introduced by
-    // removing term i
-    err[i] = 0;
-    for(int j=0;j<valid;j++)
+    for(int term = 0; term < poly.poly[variable].num_terms; term++, sum_terms++)
     {
-      float tmp[5];
-      poly_system_evaluate(&poly, sample_in+5*j, tmp, max_degree);
-      for(int k=0;k<5;k++)
-        err[i] += (tmp[k]-sample_ref[5*j+k])*(tmp[k]-sample_ref[5*j+k]);
+      err[sum_terms] = 0;
+      poly_term_t t = poly.poly[variable].term[term];
+      for(int j = 0; j < valid; j++)
+      {
+        float error = poly_term_evaluate(&t, sample_in+5*j);
+        err[sum_terms] += error*error;
+      }
     }
-
-    //restore coefficient and iterate
-    coeff[i] = curr_coeff;
-    poly_system_set_coeffs(&poly, max_degree, coeff);
   }
 
+  poly_system_get_coeffs(&poly, max_degree, coeff);
   // remove terms with error < eps
   for(int i=0;i<coeff_size;i++)
   {
@@ -120,37 +107,28 @@ int main(int argc, char *arg[])
   free(err);
   free(coeff);
 
-  //Do the same for the aperture
+  //Do the same for the aperture polynomial
   const int ap_coeff_size = poly_system_get_coeffs(&poly_ap, max_degree, 0);
+  coeff = (float *)malloc(sizeof(float)*ap_coeff_size);
+  // calculate error introduced by removing a term
   err = (float *)malloc(ap_coeff_size*sizeof(float));
-  coeff = (float *)malloc(ap_coeff_size*sizeof(float));
-  fprintf(stderr, "[ sensor->aperture ] optimising %d coeffs by %d/%d valid sample points\n", ap_coeff_size, valid, sample_cnt);
-  for(int i=0;i<valid;i++)
-    poly_system_evaluate(&poly_ap, sample_in+5*i, sample_ref+5*i, max_degree);
+  sum_terms = 0;
+
+  for(int variable = 0; variable < poly_num_vars; variable++)
+  {
+    for(int term = 0; term < poly_ap.poly[variable].num_terms; term++, sum_terms++)
+    {
+      err[sum_terms] = 0;
+      poly_term_t t = poly_ap.poly[variable].term[term];
+      for(int j = 0; j < valid; j++)
+      {
+        float error = poly_term_evaluate(&t, sample_in+5*j);
+        err[sum_terms] += error*error;
+      }
+    }
+  }
 
   poly_system_get_coeffs(&poly_ap, max_degree, coeff);
-  for(int i=0;i<ap_coeff_size;i++)
-  {
-    //set one of the coefficients to zero at a time
-    float curr_coeff = coeff[i];
-    coeff[i] = 0;
-    poly_system_set_coeffs(&poly_ap, max_degree, coeff);
-
-    //evaluate rays and calculate error
-    err[i] = 0;
-    for(int j=0;j<valid;j++)
-    {
-      float tmp[5];
-      poly_system_evaluate(&poly_ap, sample_in+5*j, tmp, max_degree);
-      for(int k=0;k<5;k++)
-        err[i] += (tmp[k]-sample_ref[5*j+k])*(tmp[k]-sample_ref[5*j+k]);
-    }
-
-    //restore coefficient
-    coeff[i] = curr_coeff;
-    poly_system_set_coeffs(&poly_ap, max_degree, coeff);
-  }
-  //poly_print(&poly_ap, 0, stderr);
   // remove terms with error < eps
   for(int i=0;i<ap_coeff_size;i++)
   {
@@ -169,7 +147,6 @@ int main(int argc, char *arg[])
   free(err);
   free(coeff);
   free(sample_in);
-  free(sample_ref);
 
   exit(0);
 }
