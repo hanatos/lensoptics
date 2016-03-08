@@ -19,7 +19,7 @@
 static float zoom = 0.0f; // zoom, if the lens supports it.
 static const int degree = 4;  // degree of the polynomial. 1 is thin lens
 static const float coverage = .5f; // coverage of incoming rays at scene facing pupil (those you point with the mouse)
-static const int num_rays = 300;//13;
+static const int num_rays = 30;//13;
 static const int dim_up = 0; // plot yz or xz of the lens in 2d?
 static char lensfilename[512] = "lenses/canon-anamorphic-converter.fx";
 static char lens_name[512];

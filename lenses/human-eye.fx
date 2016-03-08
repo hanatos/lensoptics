@@ -5,5 +5,4 @@
 6.5     3.05 abbe 1.3374 70 5.0
 100000  0.01 iris        3.0 # would go here, but we get confused with aperture submerged in fluid..
 10.2    4.00 abbe 1.42   70 5.0
--6.0    16.6 abbe 1.336  70 5.0
-100000  1.0  air            5.0 # hack to make it start in air
+-6.0    17.6 abbe 1.336  70 5.0
