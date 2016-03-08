@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-std=c11 -Wall -g -Iext/ -D_GNU_SOURCE -fopenmp
+CFLAGS=-Wall -g -Iext/ -D_GNU_SOURCE -fopenmp
 # OPTFLAGS=-I. -ggdb3 -Isrc/
 OPTFLAGS=-O3 -ffast-math -mfpmath=sse -march=native -fexpensive-optimizations -DNDEBUG -fno-finite-math-only -I. -Isrc/
 LDFLAGS=-lm

@@ -109,11 +109,11 @@ int main(int argc, char *arg[])
   {
     const float u = drand48(), v = drand48(), w = drand48(), x = drand48(), y = drand48();
     float ray_in[] = {
-      p_rad * 4.0f * (x-0.5),
-      p_rad * 4.0f * (y-0.5),
+      p_rad * 4.0f * (x-0.5f),
+      p_rad * 4.0f * (y-0.5f),
       p_rad/p_dist * cosf(2.0f*M_PI*u)*sqrtf(v),
       p_rad/p_dist * sinf(2.0f*M_PI*u)*sqrtf(v),
-      0.4 + 0.3*w};
+      0.4f + 0.3f*w};
     ray_in[2] -= ray_in[0] / p_dist;
     ray_in[3] -= ray_in[1] / p_dist;
     float out[5];

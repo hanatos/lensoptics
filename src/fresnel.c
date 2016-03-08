@@ -22,12 +22,12 @@ int main(int argc, char *arg[])
   lenses_cnt = lens_configuration(lenses, lensfilename, sizeof(lenses));
   const float p_dist = lens_get_thickness(lenses + lenses_cnt-1, zoom);
   const float p_rad = lenses[lenses_cnt-1].housing_radius;
-  const int sample_cnt = 500000;
+  const int sample_cnt = 50000;
   FILE *f = fopen("fresnel.dat", "wb");
   //XXX better find a way to set color-range in gnuplot than to add two points
   fprintf(f, "%g, %g, %g, 0, 0, 1\n", 0.f, 0.f, 1.f);
   fprintf(f, "%g, %g, %g, 0, 0, 0\n", 0.f, 0.f, 0.f);
-#define profile_cnt 512
+#define profile_cnt 128
   float profile_valr[profile_cnt] = {0.0f};
   int   profile_numr[profile_cnt] = {0};
   float profile_valp[profile_cnt] = {0.0f};
