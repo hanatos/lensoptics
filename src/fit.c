@@ -50,7 +50,7 @@ int main(int argc, char *arg[])
   max_degree = 9;
   if(argc > 2) user_degree = atol(arg[2]);
   if(user_degree < 1) user_degree = 1;
-  if(user_degree > 9) user_degree = 9;
+  if(user_degree > 9) user_degree = 20;
 
   int min_degree = 3;
   if(argc > 3) min_degree = atol(arg[3]);
@@ -149,7 +149,7 @@ int main(int argc, char *arg[])
       const int degree_coeff_size = poly_get_coeffs(poly.poly + j, max_degree, 0);
 
       // optimize taylor polynomial a bit
-      Eigen::MatrixXf A(valid, degree_coeff_size);
+      Eigen::MatrixXd A(valid, degree_coeff_size);
       for(int y = 0; y < valid; y++)
       {
         for(int x = 0; x < degree_coeff_size; x++)
@@ -160,18 +160,19 @@ int main(int argc, char *arg[])
         }
       }
       //cout<<A<<endl;
-      Eigen::VectorXf b(valid);
+      Eigen::VectorXd b(valid);
       for(int y = 0; y < valid; y++)
         b(y) = sample[j*sample_cnt+y];
       //cout<<b<<endl;
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
-      Eigen::VectorXf result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+      Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
       float error = (A*result-b).squaredNorm();
       sumCoeffs += degree_coeff_size;
       if(error < last_error[j])
       {
         last_error[j] = error;
-        poly_set_coeffs(poly.poly + j, max_degree, result.data());
+        for(int i = 0; i < degree_coeff_size; i++) coeff[i] = result.data()[i];
+        poly_set_coeffs(poly.poly + j, max_degree, coeff);
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly.poly+j, poly_backup.poly+j);
       }
@@ -222,7 +223,7 @@ int main(int argc, char *arg[])
       const int degree_coeff_size = poly_get_coeffs(poly_ap.poly + j, max_degree, 0);
 
       // optimize taylor polynomial a bit
-      Eigen::MatrixXf A(valid, degree_coeff_size);
+      Eigen::MatrixXd A(valid, degree_coeff_size);
       for(int y = 0; y < valid; y++)
       {
         for(int x = 0; x < degree_coeff_size; x++)
@@ -233,18 +234,19 @@ int main(int argc, char *arg[])
         }
       }
       //cout<<A<<endl;
-      Eigen::VectorXf b(valid);
+      Eigen::VectorXd b(valid);
       for(int y = 0; y < valid; y++)
         b(y) = sample[j*sample_cnt+y];
       //cout<<b<<endl;
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
-      Eigen::VectorXf result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+      Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
       float error = (A*result-b).squaredNorm();
       sumCoeffs += degree_coeff_size;
       if(error < last_error[j])
       {
         last_error[j] = error;
-        poly_set_coeffs(poly_ap.poly + j, max_degree, result.data());
+        for(int i = 0; i < degree_coeff_size; i++) coeff[i] = result.data()[i];
+        poly_set_coeffs(poly_ap.poly + j, max_degree, coeff);
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly_ap.poly+j, poly_backup.poly+j);
       }

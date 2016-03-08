@@ -8,7 +8,7 @@
 // where x y dx dy change meaning from plane/plane to spherical/spherical
 // and lambda is wavelength in micrometers
 #define poly_num_vars 5
-#define poly_coeff_eps 1e-8f
+#define poly_coeff_eps 1e-20
 #define real double
 
 typedef struct poly_term_t
