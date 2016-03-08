@@ -8,7 +8,7 @@
 static inline int evaluate_draw(const lens_element_t *lenses, const int lenses_cnt, const float zoom, const float *in, float *out, cairo_t *cr, float scale, int dim_up, int draw_aspherical)
 {
   int error = 0;
-  float n1 = 1.0f;
+  float n1 = spectrum_eta_from_abbe_um(lenses[lenses_cnt-1].ior, lenses[lenses_cnt-1].vno, in[4]);
   float pos[3], dir[3];
   float intensity = 1.0f;
 

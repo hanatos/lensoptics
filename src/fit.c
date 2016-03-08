@@ -105,7 +105,7 @@ int main(int argc, char *arg[])
   const int oversample = 10; // only do this x coeff count many ray tracing samples
 
   int valid = 0;
-  for(int i=0;i<sample_cnt;i++)
+  while(1)
   {
     const float u = drand48(), v = drand48(), w = drand48(), x = drand48(), y = drand48();
     float ray_in[] = {
@@ -126,6 +126,7 @@ int main(int argc, char *arg[])
     }
     // only need to be able to determine the dimensionality of our problem, not much more:
     if(valid > oversample*coeff_size) break;
+    if(valid >= sample_cnt) break;
   }
   fprintf(stderr, "[ sensor->outer pp ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
 
@@ -173,6 +174,7 @@ int main(int argc, char *arg[])
         poly_set_coeffs(poly.poly + j, max_degree, result.data());
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly.poly+j, poly_backup.poly+j);
+        poly_set_coeffs(poly_backup.poly + j, max_degree, coeff + sumCoeffs - degree_coeff_size);
       }
 //      else
 //      {
@@ -246,6 +248,7 @@ int main(int argc, char *arg[])
         poly_set_coeffs(poly_ap.poly + j, max_degree, result.data());
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly_ap.poly+j, poly_backup.poly+j);
+        poly_set_coeffs(poly_backup.poly + j, max_degree, coeff + sumCoeffs - degree_coeff_size);
       }
 //      else
 //      {
