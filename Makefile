@@ -1,8 +1,7 @@
 CC=gcc
-CFLAGS=-std=c11 -Wall -g -Iext/levmar-2.6 -D_GNU_SOURCE -fopenmp
+CFLAGS=-std=c11 -Wall -g -Iext/ -D_GNU_SOURCE -fopenmp
 # OPTFLAGS=-I. -ggdb3 -Isrc/
 OPTFLAGS=-O3 -ffast-math -mfpmath=sse -march=native -fexpensive-optimizations -DNDEBUG -fno-finite-math-only -I. -Isrc/
-LD_LEVMAR=ext/levmar-2.6/liblevmar.a -llapack -lblas
 LDFLAGS=-lm
 
 HEADERS=\
@@ -23,11 +22,8 @@ view: Makefile src/view.c ${HEADERS}
 fresnel: Makefile src/fresnel.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/fresnel.c -o fresnel ${LDFLAGS}
 
-ext/levmar-2.6/liblevmar.a:
-	make -C ext/levmar-2.6 liblevmar.a
-
-fit: Makefile src/fit.c ${HEADERS} ext/levmar-2.6/liblevmar.a
-	${CC} ${OPTFLAGS} ${CFLAGS} src/fit.c -o fit ${LDFLAGS} ${LD_LEVMAR}
+fit: Makefile src/fit.c ${HEADERS}
+	g++ ${OPTFLAGS} ${CFLAGS} src/fit.c -o fit ${LDFLAGS}
 
 genpoly: Makefile src/genpoly.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/genpoly.c -o genpoly ${LDFLAGS}

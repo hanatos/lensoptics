@@ -1,5 +1,5 @@
+#include <Eigen/Dense>
 #include "raytrace.h"
-#include "levmar.h"
 #include "poly.h"
 
 #include <stdio.h>
@@ -21,16 +21,6 @@ static inline float ap(float x, int n, float p_dist, float p_rad, int dim)
   return 2.0f*(x/(n-1.0f)-.5f); // just return [-1,1] arbitrarily
 }
 
-typedef struct tmpopt_t
-{
-  float *sample_in;
-  poly_system_t *poly;
-  float *reference;
-  float *last_valid_param;
-  int fit_idx;
-}
-tmpopt_t;
-
 void print_coeffs(float *param, int param_cnt)
 {
   int row = 8;
@@ -41,58 +31,6 @@ void print_coeffs(float *param, int param_cnt)
       if(p*row+q < param_cnt)
         if(param[p] != 0.0f) fprintf(stderr, "%f ", param[p]);
     fprintf(stderr, "\n");
-  }
-}
-void eval_poly(float *param, float *sample, int param_cnt, int sample_cnt, void *data)
-{
-  tmpopt_t *tmp = (tmpopt_t *)data;
-
-  // recover broken parameters
-  for(int k=0;k<param_cnt;k++)
-  {
-    if(param[k] == param[k]) tmp->last_valid_param[k] = param[k];
-    else param[k] = tmp->last_valid_param[k];
-  }
-
-  // fill params into poly
-  //poly_system_set_coeffs(tmp->poly, max_degree, param);
-  poly_set_coeffs(tmp->poly->poly + tmp->fit_idx, max_degree, param);
-
-#pragma omp parallel for default(shared)
-  for(int s=0;s<sample_cnt;s++)
-  {
-    const float *in = tmp->sample_in + 5*s;
-    float out[5];
-    poly_system_evaluate(tmp->poly, in, out, max_degree);
-    // system is really 5x4, don't output wavelength:
-    int k = tmp->fit_idx;
-    //for(int k=0;k<4;k++)
-    {
-      sample[s] = out[k];
-      assert(sample[s] == sample[s]);
-    }
-  }
-}
-
-// our 'variables' are the coefficients of the polynomial. The derivatives hence,
-// equal the evaluation of the terms with coefficient = 1.
-void eval_jac(float *param, float *j, int param_cnt, int sample_cnt, void *data)
-{
-  tmpopt_t *tmp = (tmpopt_t *)data;
-
-  //no need to set coefficients - we set them to one anyway
-
-  int idx = 0;
-  for(int s=0;s<sample_cnt;s++)
-  {
-    const float *in = tmp->sample_in + 5*s;
-    for(int i=0;i<param_cnt;i++)
-    {
-      poly_term_t term = tmp->poly->poly[tmp->fit_idx].term[i];
-      term.coeff = 1;
-      j[idx++] = poly_term_evaluate(&term, in);
-      assert(j[idx-1] == j[idx-1]);
-    }
   }
 }
 
@@ -191,19 +129,6 @@ int main(int argc, char *arg[])
   }
   fprintf(stderr, "[ sensor->outer pp ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
 
-  // levmar setup
-  tmpopt_t tmp;
-  tmp.sample_in = sample_in;
-  float opts[LM_OPTS_SZ], info[LM_INFO_SZ];
-  // opts[0]=LM_INIT_MU; opts[1]=1E-3; opts[2]=1E-5; opts[3]=1E-7; // terminates way to early
-  opts[0]=LM_INIT_MU; opts[1]=1E-7; opts[2]=1E-7; opts[3]=1E-12; // known to go through
-  /// opts[0]=1e-2f; opts[1]=1E-7; opts[2]=1E-7; opts[3]=1E-12; // known to go through
-  // opts[0]=LM_INIT_MU; opts[1]=1E-7; opts[2]=1E-8; opts[3]=1E-13; // goes through, some nans
-  // opts[0] = LM_INIT_MU; opts[1]=1E-8; opts[2]=1E-8; opts[3]=1E-15;
-  opts[4] = LM_DIFF_DELTA;
-  tmp.reference = sample;
-  tmp.poly = &poly;
-  tmp.last_valid_param = (float *)malloc(sizeof(float)*coeff_size);
   const char *outvname[] = {"x", "y", "dx", "dy", "transmittance"};
 
   // ===================================================================================================
@@ -217,24 +142,35 @@ int main(int argc, char *arg[])
   {
     int sumCoeffs = 0;
     float errorSum = 0.0f;
-    memset(tmp.last_valid_param, 0, sizeof(float)*coeff_size);
     for(int j = 0; j < 5; j++)
     {
-      tmp.fit_idx = j;
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly.poly + j, max_degree, 0);
 
-      //restore coefficients from backup poly as initial guess
-      memset(coeff + sumCoeffs, 0, sizeof(float)*degree_coeff_size);
-      //poly_get_coeffs(poly_backup.poly+j, max_degree, coeff + sumCoeffs);
-
       // optimize taylor polynomial a bit
-      //slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
-      slevmar_der(eval_poly, eval_jac, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
-      sumCoeffs += degree_coeff_size;
-      if(info[1] < last_error[j])
+      Eigen::MatrixXf A(valid, degree_coeff_size);
+      for(int y = 0; y < valid; y++)
       {
-        last_error[j] = info[1];
+        for(int x = 0; x < degree_coeff_size; x++)
+        {
+          poly_term_t term = poly.poly[j].term[x];
+          term.coeff = 1;
+          A(y,x) = poly_term_evaluate(&term, sample_in+5*y);
+        }
+      }
+      //cout<<A<<endl;
+      Eigen::VectorXf b(valid);
+      for(int y = 0; y < valid; y++)
+        b(y) = sample[j*sample_cnt+y];
+      //cout<<b<<endl;
+      //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
+      Eigen::VectorXf result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+      float error = (A*result-b).squaredNorm();
+      sumCoeffs += degree_coeff_size;
+      if(error < last_error[j])
+      {
+        last_error[j] = error;
+        poly_set_coeffs(poly.poly + j, max_degree, result.data());
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly.poly+j, poly_backup.poly+j);
       }
@@ -244,8 +180,8 @@ int main(int argc, char *arg[])
 //        poly_copy(poly_backup.poly+j, poly.poly+j);
 //        poly_get_coeffs(poly_backup.poly+j, max_degree, coeff+sumCoeffs);
 //      }
-      fprintf(stderr, "%s: %.4f ", outvname[j], info[1]);
-      errorSum += max(0.0f, info[1]);
+      fprintf(stderr, "%s: %.4f ", outvname[j], error);
+      errorSum += max(0.0f, error);
     }
     if(pass2) fprintf(stderr, "\n%d coeffs, fitting error %g\n", sumCoeffs, errorSum);
     else fprintf(stderr, "\ndegree %d has %d coeffs, fitting error %g\n", max_degree, sumCoeffs, errorSum);
@@ -272,8 +208,6 @@ int main(int argc, char *arg[])
   }
   fprintf(stderr, "[ sensor->aperture ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
 
-  tmp.poly = &poly_ap;
-
   for(int i = 0; i < 5; i++) last_error[i] = FLT_MAX;
   poly_system_copy(&poly_ap, &poly_backup);
 
@@ -281,24 +215,35 @@ int main(int argc, char *arg[])
   {
     int sumCoeffs = 0;
     float errorSum = 0.0f;
-    memset(tmp.last_valid_param, 0, sizeof(float)*coeff_size);
     for(int j = 0; j < 5; j++)
     {
-      tmp.fit_idx = j;
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly_ap.poly + j, max_degree, 0);
 
-      //restore coefficients from backup poly as initial guess
-      memset(coeff + sumCoeffs, 0, sizeof(float)*degree_coeff_size);
-      //poly_get_coeffs(poly_backup.poly+j, max_degree, coeff + sumCoeffs);
-
       // optimize taylor polynomial a bit
-      //slevmar_dif(eval_poly, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
-      slevmar_der(eval_poly, eval_jac, coeff + sumCoeffs, sample+j*sample_cnt, degree_coeff_size, valid, 1000, opts, info, NULL, NULL, &tmp);
-      sumCoeffs += degree_coeff_size;
-      if(info[1] < last_error[j])
+      Eigen::MatrixXf A(valid, degree_coeff_size);
+      for(int y = 0; y < valid; y++)
       {
-        last_error[j] = info[1];
+        for(int x = 0; x < degree_coeff_size; x++)
+        {
+          poly_term_t term = poly_ap.poly[j].term[x];
+          term.coeff = 1;
+          A(y,x) = poly_term_evaluate(&term, sample_in+5*y);
+        }
+      }
+      //cout<<A<<endl;
+      Eigen::VectorXf b(valid);
+      for(int y = 0; y < valid; y++)
+        b(y) = sample[j*sample_cnt+y];
+      //cout<<b<<endl;
+      //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
+      Eigen::VectorXf result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+      float error = (A*result-b).squaredNorm();
+      sumCoeffs += degree_coeff_size;
+      if(error < last_error[j])
+      {
+        last_error[j] = error;
+        poly_set_coeffs(poly_ap.poly + j, max_degree, result.data());
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly_ap.poly+j, poly_backup.poly+j);
       }
@@ -308,8 +253,8 @@ int main(int argc, char *arg[])
 //        poly_copy(poly_backup.poly+j, poly_ap.poly+j);
 //        poly_get_coeffs(poly_backup.poly+j, max_degree, coeff+sumCoeffs);
 //      }
-      fprintf(stderr, "%s: %.4f ", outvname[j], info[1]);
-      errorSum += max(0.0f, info[1]);
+      fprintf(stderr, "%s: %.4f ", outvname[j], error);
+      errorSum += max(0.0f, error);
     }
     if(pass2) fprintf(stderr, "\n%d coeffs, fitting error %g\n", sumCoeffs, errorSum);
     else fprintf(stderr, "\ndegree %d has %d coeffs, fitting error %g\n", max_degree, sumCoeffs, errorSum);
