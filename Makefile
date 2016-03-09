@@ -1,5 +1,7 @@
 CC=gcc
-CFLAGS=-Wall -g -Iext/ -D_GNU_SOURCE -fopenmp
+CXX=g++
+CFLAGS=-std=c11 -Wall -g -Iext/ -D_GNU_SOURCE -fopenmp
+CXXFLAGS=-Wall -g -Iext/ -D_GNU_SOURCE -fopenmp
 # OPTFLAGS=-I. -ggdb3 -Isrc/
 OPTFLAGS=-O3 -ffast-math -mfpmath=sse -march=native -fexpensive-optimizations -DNDEBUG -fno-finite-math-only -I. -Isrc/
 LDFLAGS=-lm
@@ -23,7 +25,7 @@ fresnel: Makefile src/fresnel.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/fresnel.c -o fresnel ${LDFLAGS}
 
 fit: Makefile src/fit.c ${HEADERS}
-	g++ ${OPTFLAGS} ${CFLAGS} src/fit.c -o fit ${LDFLAGS}
+	${CXX} ${OPTFLAGS} ${CXXFLAGS} src/fit.c -o fit ${LDFLAGS}
 
 genpoly: Makefile src/genpoly.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/genpoly.c -o genpoly ${LDFLAGS}

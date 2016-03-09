@@ -50,7 +50,7 @@ int main(int argc, char *arg[])
   max_degree = 9;
   if(argc > 2) user_degree = atol(arg[2]);
   if(user_degree < 1) user_degree = 1;
-  if(user_degree > 9) user_degree = 20;
+  if(user_degree > 9) user_degree = 9;
 
   int min_degree = 3;
   if(argc > 3) min_degree = atol(arg[3]);
