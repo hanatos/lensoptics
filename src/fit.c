@@ -288,6 +288,7 @@ int main(int argc, char *arg[])
         if(residual.squaredNorm() < 1e-5)
           break;
       }
+      A = tmp;
       Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
 #else
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
