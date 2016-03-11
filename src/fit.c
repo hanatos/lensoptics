@@ -9,6 +9,7 @@
 #include <assert.h>
 # define M_PI   3.14159265358979323846  /* pi */
 
+//#define MATCHING_PURSUIT
 
 static lens_element_t lenses[50];
 static int lenses_cnt = 0;
@@ -164,8 +165,35 @@ int main(int argc, char *arg[])
       for(int y = 0; y < valid; y++)
         b(y) = sample[j*sample_cnt+y];
       //cout<<b<<endl;
+
+#ifdef MATCHING_PURSUIT
+      Eigen::VectorXd residual = b;
+      Eigen::MatrixXd dictionary = A.transpose();
+      for(int i = 0; i < degree_coeff_size; i++)
+        dictionary.row(i).normalize();
+
+      Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(valid, degree_coeff_size);
+      for(int i = 0; i < degree_coeff_size; i++)
+      {
+        Eigen::VectorXd prod = dictionary * residual;
+        int maxidx = 0;
+        for(int i = 1; i < degree_coeff_size; i++)
+          if(fabs(prod(i)) > fabs(prod(maxidx)))
+            maxidx = i;
+
+        tmp.col(maxidx) = A.col(maxidx);
+        dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, A.rows());
+        Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
+        residual = b - tmp*result;
+        if(residual.squaredNorm() < 1e-5)
+          break;
+      }
+      A = tmp;
+      Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+#else
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
       Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+#endif
       float error = (A*result-b).squaredNorm();
       sumCoeffs += degree_coeff_size;
       if(error < last_error[j])
@@ -238,8 +266,33 @@ int main(int argc, char *arg[])
       for(int y = 0; y < valid; y++)
         b(y) = sample[j*sample_cnt+y];
       //cout<<b<<endl;
+#ifdef MATCHING_PURSUIT
+      Eigen::VectorXd residual = b;
+      Eigen::MatrixXd dictionary = A.transpose();
+      for(int i = 0; i < degree_coeff_size; i++)
+        dictionary.row(i).normalize();
+
+      Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(valid, degree_coeff_size);
+      for(int i = 0; i < degree_coeff_size; i++)
+      {
+        Eigen::VectorXd prod = dictionary * residual;
+        int maxidx = 0;
+        for(int i = 1; i < degree_coeff_size; i++)
+          if(fabs(prod(i)) > fabs(prod(maxidx)))
+            maxidx = i;
+
+        tmp.col(maxidx) = A.col(maxidx);
+        dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, dictionary.cols());
+        Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
+        residual = b - tmp*result;
+        if(residual.squaredNorm() < 1e-5)
+          break;
+      }
+      Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+#else
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
       Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+#endif
       float error = (A*result-b).squaredNorm();
       sumCoeffs += degree_coeff_size;
       if(error < last_error[j])
