@@ -9,7 +9,7 @@
 #include <assert.h>
 # define M_PI   3.14159265358979323846  /* pi */
 
-//#define MATCHING_PURSUIT
+#define MATCHING_PURSUIT
 
 static lens_element_t lenses[50];
 static int lenses_cnt = 0;
@@ -62,6 +62,9 @@ int main(int argc, char *arg[])
   if(argc > 4) min_degree_aperture = atol(arg[4]);
   if(min_degree_aperture < 1) min_degree_aperture = 1;
   if(min_degree_aperture > user_degree) min_degree_aperture = user_degree;
+
+  int max_coeffs = 10000;
+  if(argc > 5) max_coeffs = atol(arg[5]);
 
   int pass2 = 0;
   for(int i = 1; i < argc && pass2 == 0; i++)
@@ -177,9 +180,9 @@ int main(int argc, char *arg[])
       {
         Eigen::VectorXd prod = dictionary * residual;
         int maxidx = 0;
-        for(int i = 1; i < degree_coeff_size; i++)
-          if(fabs(prod(i)) > fabs(prod(maxidx)))
-            maxidx = i;
+        for(int j = 1; j < degree_coeff_size; j++)
+          if(fabs(prod(j)) > fabs(prod(maxidx)))
+            maxidx = j;
 
         tmp.col(maxidx) = A.col(maxidx);
         dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, A.rows());
@@ -187,6 +190,7 @@ int main(int argc, char *arg[])
         residual = b - tmp*result;
         if(residual.squaredNorm() < 1e-5)
           break;
+        if(i > max_coeffs) break; // force sparsity
       }
       A = tmp;
       Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
@@ -277,9 +281,9 @@ int main(int argc, char *arg[])
       {
         Eigen::VectorXd prod = dictionary * residual;
         int maxidx = 0;
-        for(int i = 1; i < degree_coeff_size; i++)
-          if(fabs(prod(i)) > fabs(prod(maxidx)))
-            maxidx = i;
+        for(int j = 1; j < degree_coeff_size; j++)
+          if(fabs(prod(j)) > fabs(prod(maxidx)))
+            maxidx = j;
 
         tmp.col(maxidx) = A.col(maxidx);
         dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, dictionary.cols());
@@ -287,6 +291,7 @@ int main(int argc, char *arg[])
         residual = b - tmp*result;
         if(residual.squaredNorm() < 1e-5)
           break;
+        if(i > max_coeffs) break; // force sparsity
       }
       A = tmp;
       Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
