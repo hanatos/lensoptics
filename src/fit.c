@@ -151,10 +151,11 @@ int main(int argc, char *arg[])
     {
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly.poly + j, max_degree, 0);
+      const int degree_num_samples = std::min(valid, oversample*degree_coeff_size);
 
       // optimize taylor polynomial a bit
-      Eigen::MatrixXd A(valid, degree_coeff_size);
-      for(int y = 0; y < valid; y++)
+      Eigen::MatrixXd A(degree_num_samples, degree_coeff_size);
+      for(int y = 0; y < degree_num_samples; y++)
       {
         for(int x = 0; x < degree_coeff_size; x++)
         {
@@ -164,8 +165,8 @@ int main(int argc, char *arg[])
         }
       }
       //cout<<A<<endl;
-      Eigen::VectorXd b(valid);
-      for(int y = 0; y < valid; y++)
+      Eigen::VectorXd b(degree_num_samples);
+      for(int y = 0; y < degree_num_samples; y++)
         b(y) = sample[j*sample_cnt+y];
       //cout<<b<<endl;
 
@@ -175,7 +176,7 @@ int main(int argc, char *arg[])
       for(int i = 0; i < degree_coeff_size; i++)
         dictionary.row(i).normalize();
 
-      Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(valid, degree_coeff_size);
+      Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, degree_coeff_size);
       for(int i = 0; i < degree_coeff_size; i++)
       {
         Eigen::VectorXd prod = dictionary * residual;
@@ -195,7 +196,7 @@ int main(int argc, char *arg[])
         dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, dictionary.cols());
         Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
         residual = b - tmp*result;
-        if(residual.squaredNorm() < 1e-5 * valid)
+        if(residual.squaredNorm() < 1e-5 * degree_num_samples)
           break;
         if(i > max_coeffs) break; // force sparsity
       }
@@ -205,7 +206,7 @@ int main(int argc, char *arg[])
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
       Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
 #endif
-      float error = (A*result-b).squaredNorm() / valid;
+      float error = (A*result-b).squaredNorm() / degree_num_samples;
       sumCoeffs += degree_coeff_size;
       if(error < last_error[j])
       {
@@ -260,10 +261,11 @@ int main(int argc, char *arg[])
     {
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly_ap.poly + j, max_degree, 0);
+      const int degree_num_samples = std::min(valid, oversample*degree_coeff_size);
 
       // optimize taylor polynomial a bit
-      Eigen::MatrixXd A(valid, degree_coeff_size);
-      for(int y = 0; y < valid; y++)
+      Eigen::MatrixXd A(degree_num_samples, degree_coeff_size);
+      for(int y = 0; y < degree_num_samples; y++)
       {
         for(int x = 0; x < degree_coeff_size; x++)
         {
@@ -273,8 +275,8 @@ int main(int argc, char *arg[])
         }
       }
       //cout<<A<<endl;
-      Eigen::VectorXd b(valid);
-      for(int y = 0; y < valid; y++)
+      Eigen::VectorXd b(degree_num_samples);
+      for(int y = 0; y < degree_num_samples; y++)
         b(y) = sample[j*sample_cnt+y];
       //cout<<b<<endl;
 #ifdef MATCHING_PURSUIT
@@ -283,7 +285,7 @@ int main(int argc, char *arg[])
       for(int i = 0; i < degree_coeff_size; i++)
         dictionary.row(i).normalize();
 
-      Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(valid, degree_coeff_size);
+      Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, degree_coeff_size);
       for(int i = 0; i < degree_coeff_size; i++)
       {
         Eigen::VectorXd prod = dictionary * residual;
@@ -303,7 +305,7 @@ int main(int argc, char *arg[])
         dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, dictionary.cols());
         Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
         residual = b - tmp*result;
-        if(residual.squaredNorm() < 1e-5 * valid)
+        if(residual.squaredNorm() < 1e-5 * degree_num_samples)
           break;
         if(i > max_coeffs) break; // force sparsity
       }
@@ -313,7 +315,7 @@ int main(int argc, char *arg[])
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
       Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
 #endif
-      float error = (A*result-b).squaredNorm() / valid;
+      float error = (A*result-b).squaredNorm() / degree_num_samples;
       sumCoeffs += degree_coeff_size;
       if(error < last_error[j])
       {
