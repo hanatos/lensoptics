@@ -188,7 +188,7 @@ int main(int argc, char *arg[])
         dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, A.rows());
         Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
         residual = b - tmp*result;
-        if(residual.squaredNorm() < 1e-5)
+        if(residual.squaredNorm() < 1e-5 * valid)
           break;
         if(i > max_coeffs) break; // force sparsity
       }
@@ -198,7 +198,7 @@ int main(int argc, char *arg[])
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
       Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
 #endif
-      float error = (A*result-b).squaredNorm();
+      float error = (A*result-b).squaredNorm() / valid;
       sumCoeffs += degree_coeff_size;
       if(error < last_error[j])
       {
@@ -289,7 +289,7 @@ int main(int argc, char *arg[])
         dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, dictionary.cols());
         Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
         residual = b - tmp*result;
-        if(residual.squaredNorm() < 1e-5)
+        if(residual.squaredNorm() < 1e-5 * valid)
           break;
         if(i > max_coeffs) break; // force sparsity
       }
@@ -299,7 +299,7 @@ int main(int argc, char *arg[])
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
       Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
 #endif
-      float error = (A*result-b).squaredNorm();
+      float error = (A*result-b).squaredNorm() / valid;
       sumCoeffs += degree_coeff_size;
       if(error < last_error[j])
       {
