@@ -180,12 +180,19 @@ int main(int argc, char *arg[])
       {
         Eigen::VectorXd prod = dictionary * residual;
         int maxidx = 0;
-        for(int j = 1; j < degree_coeff_size; j++)
-          if(fabs(prod(j)) > fabs(prod(maxidx)))
-            maxidx = j;
+        real max_cost = fabs(prod(0))/(poly_term_get_degree(poly.poly[j].term)+1.0);
+        for(int k = 1; k < degree_coeff_size; k++)
+        {
+          real cost = fabs(prod(k))/(poly_term_get_degree(poly.poly[j].term+k)+1.0);
+          if(cost > max_cost)
+          {
+            maxidx = k;
+            max_cost = cost;
+          }
+        }
 
         tmp.col(maxidx) = A.col(maxidx);
-        dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, A.rows());
+        dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, dictionary.cols());
         Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
         residual = b - tmp*result;
         if(residual.squaredNorm() < 1e-5 * valid)
@@ -281,9 +288,16 @@ int main(int argc, char *arg[])
       {
         Eigen::VectorXd prod = dictionary * residual;
         int maxidx = 0;
-        for(int j = 1; j < degree_coeff_size; j++)
-          if(fabs(prod(j)) > fabs(prod(maxidx)))
-            maxidx = j;
+        real max_cost = fabs(prod(0))/(poly_term_get_degree(poly_ap.poly[j].term)+1.0);
+        for(int k = 1; k < degree_coeff_size; k++)
+        {
+          real cost = fabs(prod(k))/(poly_term_get_degree(poly_ap.poly[j].term+k)+1.0);
+          if(cost > max_cost)
+          {
+            maxidx = k;
+            max_cost = cost;
+          }
+        }
 
         tmp.col(maxidx) = A.col(maxidx);
         dictionary.row(maxidx) = Eigen::ArrayXXd::Zero(1, dictionary.cols());

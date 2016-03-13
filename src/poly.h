@@ -252,6 +252,13 @@ int poly_system_set_coeffs(poly_system_t *s, const int max_degree, const float *
   return cnt;
 }
 
+int poly_term_get_degree(poly_term_t *p)
+{
+    int cnt = 0;
+    for(int j=0;j<poly_num_vars;j++) cnt += p->exp[j];
+    return cnt;
+}
+
 void poly_system_simplify(poly_system_t *s)
 {
   for(int j=0;j<poly_num_vars;j++)
