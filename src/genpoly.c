@@ -2,7 +2,7 @@
 #include <string.h>
 #include "poly.h"
 
-static int degree = 9;
+static int degree = 15;
 
 int main(int argc, char *arg[])
 {

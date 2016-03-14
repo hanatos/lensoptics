@@ -344,7 +344,7 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       in[3] = -in[3];
       //outrt[4] equals transmittance
       in[4] = lambda;
-      poly_system_evaluate(&poly, in, out, 9);
+      poly_system_evaluate(&poly, in, out, 15);
 
       // evaluate error poly vs ray traced:
       // TODO measure in pixels on a full frame camera
@@ -358,7 +358,7 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
     if(!error && draw_polynomials)
     {
       // draw everything grayed out in case it got killed on the aperture
-      poly_system_evaluate(&poly_aperture, in, ap, 9);
+      poly_system_evaluate(&poly_aperture, in, ap, 15);
       const int aperture_death = (ap[0]*ap[0] + ap[1]*ap[1] > aperture_rad*aperture_rad);
       if(!aperture_death)
       {
