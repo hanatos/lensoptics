@@ -2,12 +2,16 @@
 #include <string.h>
 #include "poly.h"
 
-static int degree = 15;
-
 int main(int argc, char *arg[])
 {
+  if(argc < 3)
+  {
+    fprintf(stderr, "Usage: %s degree output.poly\n", arg[0]);
+    return -1;
+  }
+  int degree = atol(arg[1]);
   poly_system_t s;
-  //Generate array {0,0,0,0,0}, {0,0,0,0,1}, {0,0,0,0,2} ... {0,0,0,1,0} 
+  //Generate array {0,0,0,0,0}, {0,0,0,0,1}, {0,0,0,0,2} ... {0,0,0,1,0}
   // ... {degree, degree, ...}
   //this is essentially the degree-bit representation of a number with
   //poly_num_vars digits (with base degree)
@@ -47,8 +51,8 @@ int main(int argc, char *arg[])
     }
   }
   fprintf(stderr, "polynomial of degree %d has %d terms\n", degree, validTerms);
-  
+
   free(expMatrix);
   poly_system_sort(&s);
-  poly_system_write(&s, "degree9-complete-sorted.poly");
+  poly_system_write(&s, arg[2]);
 }

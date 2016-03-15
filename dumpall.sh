@@ -1,5 +1,6 @@
 #!/bin/bash
 degree=5
+./genpoly $degree sorted.poly
 suffix=""
 lenses=$1
 if [ "$1" == "" ]

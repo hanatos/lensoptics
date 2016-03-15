@@ -16,7 +16,7 @@ src/spectrum.h
 
 .PHONY=all clean
 
-all: view fit gencode fresnel simplify
+all: view fit gencode fresnel simplify genpoly printpoly
 
 view: Makefile src/view.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/view.c $(shell pkg-config --cflags --libs gtk+-2.0) ${LDFLAGS} -o view ${LDFLAGS}
@@ -43,4 +43,4 @@ gencode: Makefile src/gencode.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/gencode.c -o gencode ${LDFLAGS}
 
 clean:
-	rm -f view fit gencode fresnel fresnel.dat simplify
+	rm -f view fit gencode fresnel fresnel.dat simplify genpoly printpoly
