@@ -1,5 +1,6 @@
 #!/bin/bash
-degree=5
+degree=10
+maxcoeff=70
 ./genpoly $degree sorted.poly
 suffix=""
 lenses=$1
@@ -12,10 +13,7 @@ do
   lens1=${i#*/}
   lens=${lens1%.*}
   echo '[' $lens ']'
-  ./fit $i $degree $degree $degree
-#   ./fit $i -2
-#   ./simplify $i
-#   ./fit $i -2
+  ./fit $i $degree $degree $degree $maxcoeff
   ./gencode $i
   ./view $i -o
   ./fresnel $i
