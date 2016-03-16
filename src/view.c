@@ -152,7 +152,7 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
     cairo_set_source_rgb(cr, 1, 1, 1);
     cairo_paint(cr);
     cairo_set_line_width(cr, 1.);
-    cairo_set_source_rgb(cr, 0, 0, 0);
+    cairo_set_source_rgba(cr, 0, 0, 0, .5);
   }
   else
   {
@@ -162,7 +162,7 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
     cairo_set_source_rgb(cr, 0, 0, 0);
     cairo_paint(cr);
     cairo_set_line_width(cr, 1.);
-    cairo_set_source_rgb(cr, 1, 1, 1);
+    cairo_set_source_rgba(cr, 1, 1, 1, .5);
   }
 
   // optical axis:
@@ -276,6 +276,14 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
     }
     pos -= t;
   }
+  // draw the sensor (35mm)
+  cairo_move_to(cr, -1.0, -35.0/2.0);
+  cairo_line_to(cr, -1.0,  35.0/2.0);
+  cairo_line_to(cr,  0.0,  35.0/2.0);
+  cairo_line_to(cr,  0.0, -35.0/2.0);
+  cairo_close_path(cr);
+  cairo_set_source_rgb(cr, .5, .5, .5);
+  cairo_fill(cr);
   // pos is now about 0 and points to the left end of the blackbox
   // cairo_restore(cr);
 
@@ -362,9 +370,9 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       const int aperture_death = (ap[0]*ap[0] + ap[1]*ap[1] > aperture_rad*aperture_rad);
       if(!aperture_death)
       {
-        //TODO: use transmittance from polynomial evaluation
+        // use transmittance from polynomial evaluation
         float transmittance = out[4];
-        cairo_set_source_rgba(cr, rgb[0], rgb[1], rgb[2], transmittance);
+        cairo_set_source_rgba(cr, rgb[0], rgb[1], rgb[2], 3.0 * transmittance);
         // sensor
         cairo_move_to(cr, 0, in[dim_up]);
         cairo_line_to(cr, 0+len, in[dim_up] + len*in[dim_up+2]);

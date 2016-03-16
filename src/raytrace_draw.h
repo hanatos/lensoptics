@@ -146,7 +146,7 @@ static inline int evaluate_reverse_draw(const lens_element_t *lenses, const int 
   cairo_scale(cr, 1/scale, 1/scale);
   cairo_set_line_width(cr, 1.0f/20.0f);
   if(error) cairo_set_source_rgba(cr, 0.5, 0.5, 0.5, 0.05);
-  else      cairo_set_source_rgba(cr, 0.5, 0.5, 0.5, intensity);
+  else      cairo_set_source_rgba(cr, 0.5, 0.5, 0.5, 3.0f * intensity);
   cairo_stroke(cr);
   cairo_restore(cr);
 
