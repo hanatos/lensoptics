@@ -16,7 +16,7 @@ static int lenses_cnt = 0;
 static const float zoom = 0.0f;
 static int max_degree = 4;
 static int aspheric_elements = 1;
-static const float precision = 1e-4;
+static const float precision[5] = {1e-4, 1e-4, 1e-6, 1e-6, 1e-7};
 
 static inline float ap(float x, int n, float p_dist, float p_rad, int dim)
 { // sample incoming pupil
@@ -108,13 +108,14 @@ int main(int argc, char *arg[])
   float *sample = (float *)malloc(sample_cnt*sizeof(float)*5);
   float *sample_in = (float *)malloc(sample_cnt*sizeof(float)*5);
   const int oversample = 4; // only do this x coeff count many ray tracing samples
-  //const int bucket_cnt = oversample;
-  //int bucket[bucket_cnt];
-  //for(int i = 0; i < bucket_cnt; i++) bucket[i] = 0;
+//  #define BUCKET
+  #ifdef BUCKET
+  const int bucket_cnt = 10;
+  int bucket[bucket_cnt];
+  for(int i = 0; i < bucket_cnt; i++) bucket[i] = 0;
+  #endif
 
   int valid = 0;
-  float range[5];
-  for(int k=0;k<5;k++) range[k] = 0;
   while(1)
   {
     const float u = drand48(), v = drand48(), w = drand48(), x = drand48(), y = drand48();
@@ -130,24 +131,25 @@ int main(int argc, char *arg[])
     ray_in[3] -= ray_in[1] / p_dist;
     float out[5];
     int error = evaluate(lenses, lenses_cnt, zoom, ray_in, out, aspheric_elements);
-
-    //int bucket_num = bucket_cnt * (out[0]*out[0]+out[1]*out[1]) / (lenses[0].housing_radius*lenses[0].housing_radius);
-    if(!error)// && bucket[bucket_num] <= oversample*coeff_size/bucket_cnt)
+    #ifdef BUCKET
+    int bucket_num = bucket_cnt * (out[0]*out[0]+out[1]*out[1]) / (lenses[0].housing_radius*lenses[0].housing_radius);
+    if(!error && bucket[bucket_num] <= oversample*coeff_size/bucket_cnt)
+    #else
+    if(!error)
+    #endif
     {
       for(int k=0;k<5;k++) sample_in[5*valid + k] = ray_in[k];
       for(int k=0;k<5;k++) sample[valid+k*sample_cnt] = out[k];
-      for(int k=0;k<5;k++) range[k] = max(range[k], fabs(out[k]));
       valid++;
-      //bucket[bucket_num]++;
-      //fprintf(stderr, "[%d] %d, %d/%d\n", bucket_num, bucket[bucket_num], valid, oversample*coeff_size);
+      #ifdef BUCKET
+      bucket[bucket_num]++;
+      #endif
     }
     // only need to be able to determine the dimensionality of our problem, not much more:
     if(valid >= oversample*coeff_size) break;
     if(valid >= sample_cnt) break;
   }
   fprintf(stderr, "[ sensor->outer pp ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
-  range[2] = range[3] = 0.01;
-  range[4] = 1;
   const char *outvname[] = {"x", "y", "dx", "dy", "transmittance"};
 
   // ===================================================================================================
@@ -187,69 +189,43 @@ int main(int argc, char *arg[])
         b(y) = sample[j*sample_cnt+y];
       //cout<<b<<endl;
 
-#ifdef MATCHING_PURSUIT
-      //first calculate error when using all terms
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
-      float error = 0;
-      //result = (A*A.transpose()).ldlt().solve(A*b);
-      //error = (A.transpose() * result - b).squaredNorm();
-      //if it is larger than the threshold, don't bother searching for a match
-      // if(error < precision*degree_num_samples*range[j])
+      Eigen::VectorXd residual = b;
+      Eigen::VectorXd factor(degree_coeff_size);
+      Eigen::VectorXd used(degree_coeff_size);
+      int permutation[degree_coeff_size];
+      for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
+      for(int i = 0; i < degree_coeff_size; i++) used[i] = 0.0;
+      for(int i = 0; i < degree_coeff_size; i++)
+        factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
+
+      coeff_cnt = 0;
+      for(int i = 0; i < degree_coeff_size; i++)
       {
-        Eigen::VectorXd residual = b;
-        Eigen::VectorXd factor(degree_coeff_size);
-        Eigen::VectorXd used(degree_coeff_size);
-        int permutation[degree_coeff_size];
-        for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
-        for(int i = 0; i < degree_coeff_size; i++) used[i] = 0.0;
-        for(int i = 0; i < degree_coeff_size; i++)
-          factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
+        int maxidx = 0;
+        Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
+        prod.maxCoeff(&maxidx);
+        permutation[coeff_cnt] = maxidx;
+        coeff_cnt++;
 
-        coeff_cnt = 0;
-        for(int i = 0; i < degree_coeff_size; i++)
-        {
-          int maxidx = 0;
-          Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
-          prod.maxCoeff(&maxidx);
-          permutation[coeff_cnt] = maxidx;
-          coeff_cnt++;
-
-          Eigen::MatrixXd tmp2(degree_num_samples, coeff_cnt);
-          for(int k = 0; k < coeff_cnt; k++)
-            tmp2.col(k) = A.row(permutation[k]).transpose();
-          result = (tmp2.transpose()*tmp2).ldlt().solve(tmp2.transpose()*b);
-          residual = b-tmp2*result;
-          used(maxidx) = 1.0;
-          if(j < 4) // don't limit transmittance precision
-          if(residual.squaredNorm() < precision * degree_num_samples * range[j])
-            break;
-          if(i > max_coeffs) break; // force sparsity
-        }
-
-        //Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, degree_coeff_size);
-        Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
+        Eigen::MatrixXd tmp2(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
-        {
-        //  tmp.col(permutation[k]) = A.row(k).transpose();
-          coeffs(permutation[k]) = result(k);
-        }
-        //A = tmp;
-        result = coeffs;
-        error = residual.squaredNorm() / degree_num_samples;
+          tmp2.col(k) = A.row(permutation[k]).transpose();
+        result = (tmp2.transpose()*tmp2).ldlt().solve(tmp2.transpose()*b);
+        residual = b-tmp2*result;
+        used(maxidx) = 1.0;
+        if(j < 4) // don't limit transmittance precision
+        if(residual.squaredNorm() < precision[j] * degree_num_samples)
+          break;
+        if(i > max_coeffs) break; // force sparsity
       }
-      // else
-      // {
-      //   Eigen::MatrixXd tmp = A.transpose();
-      //   A = tmp;
-      //   Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
-      //   error = (A*result-b).squaredNorm() / degree_num_samples;
-      // }
-#else
-      A = A.transpose();
-      //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
-      result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
-      error = (A*result-b).squaredNorm() / degree_num_samples;
-#endif
+
+      Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
+      for(int k = 0; k < coeff_cnt; k++)
+        coeffs(permutation[k]) = result(k);
+      result = coeffs;
+      float error = residual.squaredNorm() / degree_num_samples;
+
       sumCoeffs += coeff_cnt;
       maxSumCoeffs += degree_coeff_size;
       if(error < last_error[j])
@@ -260,15 +236,10 @@ int main(int argc, char *arg[])
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly.poly+j, poly_backup.poly+j);
       }
-//      else
-//      {
-//        poly_destroy(poly.poly+j);
-//        poly_copy(poly_backup.poly+j, poly.poly+j);
-//        poly_get_coeffs(poly_backup.poly+j, max_degree, coeff+sumCoeffs);
-//      }
       fprintf(stderr, "%s: %.4f ", outvname[j], error);
-      errorSum += max(0.0f, error);
+      errorSum += error;
     }
+
     if(pass2) fprintf(stderr, "\n%d coeffs, fitting error %g\n", sumCoeffs, errorSum);
     else fprintf(stderr, "\ndegree %d has %d/%d coeffs, fitting error %g\n", max_degree, sumCoeffs, maxSumCoeffs, errorSum);
   }
@@ -282,7 +253,6 @@ int main(int argc, char *arg[])
   // evaluate_aperture poly sensor -> aperture
   // ===================================================================================================
   memset(sample, 0, sizeof(float)*sample_cnt*5);
-  for(int k=0;k<5;k++) range[k] = 0;
   for(int i=0;i<valid;i++)
   {
     float *ray_in = sample_in+5*i;
@@ -292,11 +262,8 @@ int main(int argc, char *arg[])
     assert(error == 0);
     for(int k=0;k<5;k++)
       sample[i+k*sample_cnt] = out[k];
-    for(int k=0;k<5;k++) range[k] = max(range[k], fabs(out[k]));
   }
   fprintf(stderr, "[ sensor->aperture ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
-  range[2] = range[3] = 0.01;
-  range[4] = 1;
   for(int i = 0; i < 5; i++) last_error[i] = FLT_MAX;
   poly_system_copy(&poly_ap, &poly_backup);
 
@@ -329,87 +296,55 @@ int main(int argc, char *arg[])
       for(int y = 0; y < degree_num_samples; y++)
         b(y) = sample[j*sample_cnt+y];
       //cout<<b<<endl;
-
-#ifdef MATCHING_PURSUIT
-      //first calculate error when using all terms
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
-      float error = 0;
-      //result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
-      //error = (A.transpose() * result - b).squaredNorm();
-      //if it is larger than the threshold, don't bother searching for a match
-      // if(error < precision*degree_num_samples)//*range[j])
+      Eigen::VectorXd residual = b;
+      Eigen::VectorXd factor(degree_coeff_size);
+      Eigen::VectorXd used(degree_coeff_size);
+      int permutation[degree_coeff_size];
+      for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
+      for(int i = 0; i < degree_coeff_size; i++) used[i] = 0.0;
+      for(int i = 0; i < degree_coeff_size; i++)
+        factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly_ap.poly[j].term+i)+1.0));
+
+      coeff_cnt = 0;
+      for(int i = 0; i < degree_coeff_size; i++)
       {
-        Eigen::VectorXd residual = b;
-        Eigen::VectorXd factor(degree_coeff_size);
-        Eigen::VectorXd used(degree_coeff_size);
-        int permutation[degree_coeff_size];
-        for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
-        for(int i = 0; i < degree_coeff_size; i++) used[i] = 0.0;
-        for(int i = 0; i < degree_coeff_size; i++)
-          factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
+        int maxidx = 0;
+        Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
+        prod.maxCoeff(&maxidx);
+        permutation[coeff_cnt] = maxidx;
+        coeff_cnt++;
 
-        coeff_cnt = 0;
-        for(int i = 0; i < degree_coeff_size; i++)
-        {
-          int maxidx = 0;
-          Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
-          prod.maxCoeff(&maxidx);
-          permutation[coeff_cnt] = maxidx;
-          coeff_cnt++;
-
-          Eigen::MatrixXd tmp2(degree_num_samples, coeff_cnt);
-          for(int k = 0; k < coeff_cnt; k++)
-            tmp2.col(k) = A.row(permutation[k]).transpose();
-          result = (tmp2.transpose()*tmp2).ldlt().solve(tmp2.transpose()*b);
-          residual = b-tmp2*result;
-          used(maxidx) = 1.0;
-          if(residual.squaredNorm() < precision * degree_num_samples * range[j])
-            break;
-          if(i > max_coeffs) break; // force sparsity
-        }
-
-        //Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, degree_coeff_size);
-        Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
+        Eigen::MatrixXd tmp2(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
-        {
-        //  tmp.col(permutation[k]) = A.row(k).transpose();
-          coeffs(permutation[k]) = result(k);
-        }
-        //A = tmp;
-        result = coeffs;
-        error = residual.squaredNorm() / degree_num_samples;
+          tmp2.col(k) = A.row(permutation[k]).transpose();
+        result = (tmp2.transpose()*tmp2).ldlt().solve(tmp2.transpose()*b);
+        residual = b-tmp2*result;
+        used(maxidx) = 1.0;
+        float max_err = residual.squaredNorm();
+        if(max_err < precision[j]*degree_num_samples)
+          break;
+        if(i > max_coeffs) break; // force sparsity
       }
-      // else
-      // {
-      //   Eigen::MatrixXd tmp = A.transpose();
-      //   A = tmp;
-      //   Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
-      //   error = (A*result-b).squaredNorm() / degree_num_samples;
-      // }
-#else
-      A = A.transpose();
-      //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
-      Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
-      error = (A*result-b).squaredNorm() / degree_num_samples;
-#endif
+
+      Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
+      for(int k = 0; k < coeff_cnt; k++)
+        coeffs(permutation[k]) = result(k);
+      result = coeffs;
+      float error = residual.squaredNorm() / degree_num_samples;
+
       sumCoeffs += coeff_cnt;
       maxSumCoeffs += degree_coeff_size;
       if(error < last_error[j])
       {
         last_error[j] = error;
-        for(int i = 0; i < degree_coeff_size; i++) coeff[i] = result.data()[i];
+        for(int i = 0; i < degree_coeff_size; i++) coeff[i] = result[i];
         poly_set_coeffs(poly_ap.poly + j, max_degree, coeff);
         poly_destroy(poly_backup.poly+j);
         poly_copy(poly_ap.poly+j, poly_backup.poly+j);
       }
-//      else
-//      {
-//        poly_destroy(poly_ap.poly+j);
-//        poly_copy(poly_backup.poly+j, poly_ap.poly+j);
-//        poly_get_coeffs(poly_backup.poly+j, max_degree, coeff+sumCoeffs);
-//      }
       fprintf(stderr, "%s: %.4f ", outvname[j], error);
-      errorSum += max(0.0f, error);
+      errorSum += error;
     }
     if(pass2) fprintf(stderr, "\n%d coeffs, fitting error %g\n", sumCoeffs, errorSum);
     else fprintf(stderr, "\ndegree %d has %d/%d coeffs, fitting error %g\n", max_degree, sumCoeffs, maxSumCoeffs, errorSum);
