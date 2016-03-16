@@ -121,8 +121,8 @@ int main(int argc, char *arg[])
     float ray_in[] = {
       // p_rad * 4.0f * (x-0.5f),
       // p_rad * 4.0f * (y-0.5f),
-      35.0/2.0 - x*35.0f, // 35mm film, isotropic
-      35.0/2.0 - y*35.0f,
+      35.0f/2.0f - x*35.0f, // 35mm film, isotropic
+      35.0f/2.0f - y*35.0f,
       p_rad/p_dist * cosf(2.0f*M_PI*u)*sqrtf(v),
       p_rad/p_dist * sinf(2.0f*M_PI*u)*sqrtf(v),
       0.4f + 0.3f*w};
@@ -194,7 +194,7 @@ int main(int argc, char *arg[])
       //result = (A*A.transpose()).ldlt().solve(A*b);
       //error = (A.transpose() * result - b).squaredNorm();
       //if it is larger than the threshold, don't bother searching for a match
-      if(error < precision*degree_num_samples*range[j])
+      // if(error < precision*degree_num_samples*range[j])
       {
         Eigen::VectorXd residual = b;
         Eigen::VectorXd factor(degree_coeff_size);
@@ -237,13 +237,13 @@ int main(int argc, char *arg[])
         result = coeffs;
         error = residual.squaredNorm() / degree_num_samples;
       }
-      else
-      {
-        Eigen::MatrixXd tmp = A.transpose();
-        A = tmp;
-        Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
-        error = (A*result-b).squaredNorm() / degree_num_samples;
-      }
+      // else
+      // {
+      //   Eigen::MatrixXd tmp = A.transpose();
+      //   A = tmp;
+      //   Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+      //   error = (A*result-b).squaredNorm() / degree_num_samples;
+      // }
 #else
       A = A.transpose();
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
@@ -337,7 +337,7 @@ int main(int argc, char *arg[])
       //result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
       //error = (A.transpose() * result - b).squaredNorm();
       //if it is larger than the threshold, don't bother searching for a match
-      if(error < precision*degree_num_samples*range[j])
+      // if(error < precision*degree_num_samples)//*range[j])
       {
         Eigen::VectorXd residual = b;
         Eigen::VectorXd factor(degree_coeff_size);
@@ -379,13 +379,13 @@ int main(int argc, char *arg[])
         result = coeffs;
         error = residual.squaredNorm() / degree_num_samples;
       }
-      else
-      {
-        Eigen::MatrixXd tmp = A.transpose();
-        A = tmp;
-        Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
-        error = (A*result-b).squaredNorm() / degree_num_samples;
-      }
+      // else
+      // {
+      //   Eigen::MatrixXd tmp = A.transpose();
+      //   A = tmp;
+      //   Eigen::VectorXd result = (A.transpose()*A).ldlt().solve(A.transpose()*b);
+      //   error = (A*result-b).squaredNorm() / degree_num_samples;
+      // }
 #else
       A = A.transpose();
       //VectorXf result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
