@@ -119,8 +119,10 @@ int main(int argc, char *arg[])
   {
     const float u = drand48(), v = drand48(), w = drand48(), x = drand48(), y = drand48();
     float ray_in[] = {
-      p_rad * 4.0f * (x-0.5f),
-      p_rad * 4.0f * (y-0.5f),
+      // p_rad * 4.0f * (x-0.5f),
+      // p_rad * 4.0f * (y-0.5f),
+      35.0/2.0 - x*35.0f, // 35mm film, isotropic
+      35.0/2.0 - y*35.0f,
       p_rad/p_dist * cosf(2.0f*M_PI*u)*sqrtf(v),
       p_rad/p_dist * sinf(2.0f*M_PI*u)*sqrtf(v),
       0.4f + 0.3f*w};
@@ -218,6 +220,7 @@ int main(int argc, char *arg[])
           result = (tmp2.transpose()*tmp2).ldlt().solve(tmp2.transpose()*b);
           residual = b-tmp2*result;
           used(maxidx) = 1.0;
+          if(j < 4) // don't limit transmittance precision
           if(residual.squaredNorm() < precision * degree_num_samples * range[j])
             break;
           if(i > max_coeffs) break; // force sparsity
