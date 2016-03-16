@@ -9,8 +9,6 @@
 #include <assert.h>
 # define M_PI   3.14159265358979323846  /* pi */
 
-#define MATCHING_PURSUIT
-
 static lens_element_t lenses[50];
 static int lenses_cnt = 0;
 static const float zoom = 0.0f;
