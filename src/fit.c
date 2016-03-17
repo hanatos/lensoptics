@@ -14,7 +14,7 @@ static int lenses_cnt = 0;
 static const float zoom = 0.0f;
 static int max_degree = 4;
 static int aspheric_elements = 1;
-static const float precision[5] = {1e-4, 1e-4, 1e-6, 1e-6, 1e-7};
+static const float precision[5] = {1e-6, 1e-6, 1e-8, 1e-8, 1e-9};
 
 static inline float ap(float x, int n, float p_dist, float p_rad, int dim)
 { // sample incoming pupil
