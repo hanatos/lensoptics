@@ -34,9 +34,10 @@ int main(int argc, char *arg[])
   {
     //remove terms with sum exp > degree
     int *exp = expMatrix[i].exp;
-    if(exp[0]+exp[1]+exp[2]+exp[3]+exp[4] <= degree)
+    int currdegree = 0;
+    for(int i = 0; i < poly_num_vars; i++) currdegree += exp[i];
+    if(currdegree <= degree)
       validTerms++;
-    //  fprintf(stderr, "Term: %d %d %d %d %d\n", exp[0], exp[1], exp[2], exp[3], exp[4]);
   }
   for(int i=0;i<poly_num_vars;i++)
   {
@@ -46,7 +47,9 @@ int main(int argc, char *arg[])
     for(int j=0;j<numTerms;j++)
     {
       int *exp = expMatrix[j].exp;
-      if(exp[0]+exp[1]+exp[2]+exp[3]+exp[4] <= degree)
+      int currdegree = 0;
+      for(int i = 0; i < poly_num_vars; i++) currdegree += exp[i];
+      if(currdegree <= degree)
         memcpy(s.poly[i].term+(termsWritten++), expMatrix+j, sizeof(poly_term_t));
     }
   }

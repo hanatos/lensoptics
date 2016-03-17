@@ -17,9 +17,12 @@ do
   ./gencode $i
   ./view $i -o
   ./fresnel $i
+  ./sample-plot $i
   gnuplot -e "lens=\"$i\"" fresnel.plt
+  gnuplot -e "lens=\"$i\"" sample-plot.plt
   mv screenshot.pdf lenses/${lens}.pdf
   mv fresnel-profile.pdf lenses/${lens}-zzz-fresnel.pdf
+  mv sample-plot.pdf lenses/${lens}-zzz-samples.pdf
   echo ""
   mkdir -p render/${lens}${suffix}
   mv *.h render/${lens}${suffix}/
