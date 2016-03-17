@@ -21,6 +21,9 @@ all: view fit gencode fresnel simplify genpoly printpoly
 view: Makefile src/view.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/view.c $(shell pkg-config --cflags --libs gtk+-2.0) ${LDFLAGS} -o view ${LDFLAGS}
 
+sample-plot: Makefile src/sample-plot.c ${HEADERS}
+	${CC} ${OPTFLAGS} ${CFLAGS} src/sample-plot.c -o sample-plot ${LDFLAGS}
+
 fresnel: Makefile src/fresnel.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/fresnel.c -o fresnel ${LDFLAGS}
 
