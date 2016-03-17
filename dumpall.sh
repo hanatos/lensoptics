@@ -1,6 +1,6 @@
 #!/bin/bash
-degree=10
-maxcoeff=70
+degree=11
+maxcoeff=40
 ./genpoly $degree sorted.poly
 suffix=""
 lenses=$1
