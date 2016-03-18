@@ -14,7 +14,6 @@ static int lenses_cnt = 0;
 static const float zoom = 0.0f;
 static int max_degree = 4;
 static int aspheric_elements = 1;
-static const float precision[5] = {1e-6, 1e-6, 1e-8, 1e-8, 1e-9};
 
 static inline float ap(float x, int n, float p_dist, float p_rad, int dim)
 { // sample incoming pupil
@@ -198,7 +197,7 @@ int main(int argc, char *arg[])
         factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
 
       coeff_cnt = 0;
-      for(int i = 0; i < degree_coeff_size; i++)
+      for(int i = 0; i < degree_coeff_size && i < max_coeffs; i++)
       {
         int maxidx = 0;
         Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
@@ -212,10 +211,6 @@ int main(int argc, char *arg[])
         result = (tmp2.transpose()*tmp2).ldlt().solve(tmp2.transpose()*b);
         residual = b-tmp2*result;
         used(maxidx) = 1.0;
-        if(j < 4) // don't limit transmittance precision
-        if(residual.squaredNorm() < precision[j] * degree_num_samples)
-          break;
-        if(i > max_coeffs) break; // force sparsity
       }
 
       Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
@@ -305,7 +300,7 @@ int main(int argc, char *arg[])
         factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly_ap.poly[j].term+i)+1.0));
 
       coeff_cnt = 0;
-      for(int i = 0; i < degree_coeff_size; i++)
+      for(int i = 0; i < degree_coeff_size && i < max_coeffs; i++)
       {
         int maxidx = 0;
         Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
@@ -320,9 +315,6 @@ int main(int argc, char *arg[])
         residual = b-tmp2*result;
         used(maxidx) = 1.0;
         float max_err = residual.squaredNorm();
-        if(max_err < precision[j]*degree_num_samples)
-          break;
-        if(i > max_coeffs) break; // force sparsity
       }
 
       Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
