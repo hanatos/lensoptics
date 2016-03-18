@@ -1,5 +1,5 @@
 #!/bin/bash
-degree=10
+degree=11
 maxcoeff=40
 ./genpoly $degree sorted.poly
 suffix=""
