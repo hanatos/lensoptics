@@ -40,6 +40,8 @@ void log_iteration(const float *appos, const float aperr, const float *outpos, c
   last_ap_err = aperr;
 }
 
+void common_sincosf(float, float*, float*);
+
 #define DEBUG_LOG log_iteration(pred_ap, sqr_ap_err, pred_out_cs, pred_out_cs+3, sqr_err)
 
 #include "render/lens.h"
