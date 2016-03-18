@@ -1,6 +1,7 @@
 #include <math.h>
 #include <string.h>
 #include "gencode.h"
+#include "raytrace.h"
 #include "lenssystem.h"
 
 static lens_element_t lenses[50];
@@ -72,6 +73,16 @@ int main(int argc, char **argv)
   fprintf(f, "static const float lens_aperture_pos = %f; // distance aperture -> outer pupil in mm\n", aperture_pos);
   fprintf(f, "static const float lens_aperture_housing_radius = %f; // lens housing radius at the aperture\n", aperture_housing_radius);
   fprintf(f, "static const float lens_outer_pupil_curvature_radius = %f; // radius of curvature of the outer pupil\n", lenses[0].lens_radius);
+
+  float sensor[] = {22.f, 0, (lenses[lenses_cnt-1].housing_radius-22.f)/bfl, 0, .55};
+  float out[] = {0, 0, 0, 0, 0};
+  poly_system_evaluate(&poly, sensor, out, 100);
+  float wspos[3], wsdir[3];
+  sphereToCs(out, out+2, wspos, wsdir, 0, lenses[0].lens_radius);
+  raytrace_normalise(wsdir);
+  wsdir[2] = wsdir[2]<-1?-1:wsdir[2]>1?1:wsdir[2];
+  float fov = wsdir[2];
+  fprintf(f, "static const float lens_field_of_view = %f; // cosine of the approximate field of view assuming a 35mm image\n", fov);
   fclose(f);
 
   exit(0);
