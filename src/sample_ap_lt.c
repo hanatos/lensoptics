@@ -31,10 +31,13 @@ static inline float MAX(float a, float b)
   return a>b?a:b;
 }
 
-void log_iteration(const float *appos, const float aperr, const float *outpos, const float *outdir, const float outerr)
+void log_iteration(const float *appos, const float aperr, const float *outpos, const float *outdir, const float sen_x, const float sen_dx, const float outerr)
 {
   if(logfile)
-    fprintf(logfile, "%d %g %g\n", iteration_cnt, aperr, outerr);
+  {
+    //fprintf(logfile, "%d %g %g %g %g %g %g\n", iteration_cnt, aperr, outerr, iteration_cnt*1.0f, outpos[0], outdir[2], outdir[0]);
+    fprintf(logfile, "%d %g %g %g %g %g %g %g %g %g\n", iteration_cnt, aperr, outerr, iteration_cnt*1.0f, sen_x, 1.0f, sen_dx, outpos[0], outdir[2], outdir[0]);
+  }
   iteration_cnt++;
   last_err = outerr;
   last_ap_err = aperr;
@@ -42,7 +45,7 @@ void log_iteration(const float *appos, const float aperr, const float *outpos, c
 
 void common_sincosf(float, float*, float*);
 
-#define DEBUG_LOG log_iteration(pred_ap, sqr_ap_err, pred_out_cs, pred_out_cs+3, sqr_err)
+#define DEBUG_LOG log_iteration(pred_ap, sqr_ap_err, pred_out_cs, pred_out_cs+3, begin_x, begin_dx, sqr_err)
 
 #include "render/lens.h"
 

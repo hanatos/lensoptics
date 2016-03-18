@@ -260,12 +260,13 @@ void print_lt_sample_aperture(FILE *f, const poly_system_t *system, const poly_s
   fprintf(f, "    if(sqr_ap_err>prev_sqr_ap_err) error |= 2;\n");
   fprintf(f, "    if(out[0]!=out[0]) error |= 4;\n");
   fprintf(f, "    if(out[1]!=out[1]) error |= 8;\n");
-  fprintf(f, "    if(out[0]*out[0]+out[1]*out[1] > lens_outer_pupil_radius*lens_outer_pupil_radius) error |= 16;\n");
+  //fprintf(f, "    if(out[0]*out[0]+out[1]*out[1] > lens_outer_pupil_radius*lens_outer_pupil_radius) error |= 16;\n");
   fprintf(f, "    DEBUG_LOG;\n");
   fprintf(f, "    // reset error code for first few iterations.\n");
   fprintf(f, "    if(k<10) error = 0;\n");
   fprintf(f, "  }\n");
   fprintf(f, "}\nelse\n  error = 128;\n");
+  fprintf(f, "if(out[0]*out[0]+out[1]*out[1] > lens_outer_pupil_radius*lens_outer_pupil_radius) error |= 16;\n");
   
   //now calculate transmittance or set it to zero if we stoped due to divergence
   fprintf(f, "const float %s = %s;\n", begin_var[0], vnamei[0]);
@@ -278,6 +279,6 @@ void print_lt_sample_aperture(FILE *f, const poly_system_t *system, const poly_s
   fprintf(f, "  out[4] = ");
   poly_print(&system->poly[4], (const char**)begin_var, f);
   fprintf(f, ";\n");
-  fprintf(f, "else\n    out[4] = 0.0f;\n");
+  fprintf(f, "else\n  out[4] = 0.0f;\n");
   for(int k=0;k<poly_num_vars;k++) free(begin_var[k]);
 }

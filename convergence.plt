@@ -20,11 +20,13 @@ plot 'lt_convergence_profile.dat' u 1:3 w l title 'squared outer error' axes x1y
 set output 'convergence.pdf'
 set ylabel "squared error"
 unset y2label
-unset y2tics
+#unset y2tics
 #set yrange [:1]
 set autoscale y
 set logscale y
 plot 'lt_convergence.dat' u 1:2 w l title 'squared error on aperture',\
-     'lt_convergence.dat' u 1:3 w l title 'squared error on outer pupil'
+     'lt_convergence.dat' u 1:3 w l title 'squared error on outer pupil',\
+     'lt_convergence.dat' u 4:5:6:7 with vectors title 'sensor' axes x1y2,\
+     'lt_convergence.dat' u 4:8:9:10 with vectors title 'outer pupil' axes x1y2
 unset logscale y
 unset output
