@@ -202,6 +202,8 @@ int main(int argc, char *arg[])
         int maxidx = 0;
         Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
         prod.maxCoeff(&maxidx);
+        if(used(maxidx) > 0)
+          break;
         permutation[coeff_cnt] = maxidx;
         coeff_cnt++;
 
@@ -305,6 +307,8 @@ int main(int argc, char *arg[])
         int maxidx = 0;
         Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
         prod.maxCoeff(&maxidx);
+        if(used(maxidx) > 0)
+          break;
         permutation[coeff_cnt] = maxidx;
         coeff_cnt++;
 
@@ -314,7 +318,6 @@ int main(int argc, char *arg[])
         result = (tmp2.transpose()*tmp2).ldlt().solve(tmp2.transpose()*b);
         residual = b-tmp2*result;
         used(maxidx) = 1.0;
-        float max_err = residual.squaredNorm();
       }
 
       Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
