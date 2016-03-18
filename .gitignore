@@ -5,3 +5,14 @@ view
 gencode
 fresnel
 simplify
+printpoly
+genpoly
+sample-plot
+lt-aperture-sampling
+lenses/*.pdf
+lenses/*.fit
+*.dat
+lenses.pdf
+sorted.poly
+render/*
+
