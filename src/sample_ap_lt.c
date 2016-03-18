@@ -3,7 +3,7 @@
 
 #define min(a, b) ((a)<(b)?(a):(b))
 # define M_PI   3.14159265358979323846  /* pi */
-//#define FLT_MAX 1e35
+#define FLT_MAX 1e35
 
 static int iteration_cnt = 0;
 const float dist = 0;
