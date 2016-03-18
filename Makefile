@@ -45,5 +45,8 @@ simplify: Makefile src/simplify.c ${HEADERS}
 gencode: Makefile src/gencode.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/gencode.c -o gencode ${LDFLAGS}
 
+lt-aperture-sampling: Makefile src/sample_ap_lt.c ${HEADERS}
+	${CC} ${OPTFLAGS} ${CFLAGS} -Irender/${lensname} src/sample_ap_lt.c -o lt-aperture-sampling ${LDFLAGS}
+
 clean:
-	rm -f view fit gencode fresnel fresnel.dat simplify genpoly printpoly sample-plot sample-plot.dat
+	rm -f view fit gencode fresnel fresnel.dat simplify genpoly printpoly sample-plot sample-plot.dat lt_convergence.dat lt_convergence_profile.dat lt-aperture-sampling
