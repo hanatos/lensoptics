@@ -256,8 +256,8 @@ void print_lt_sample_aperture(FILE *f, const poly_system_t *system, const poly_s
   for(int k=0;k<2;k++)
     fprintf(f, "      %s += invJ[%d][i]*delta_out[i];\n", vnamei[k], k);
   fprintf(f, "    }\n");
-  //fprintf(f, "    if(sqr_err>prev_sqr_err) error |= 1;\n");
-  //fprintf(f, "    if(sqr_ap_err>prev_sqr_ap_err) error |= 2;\n");
+  fprintf(f, "    if(sqr_err>prev_sqr_err) error |= 1;\n");
+  fprintf(f, "    if(sqr_ap_err>prev_sqr_ap_err) error |= 2;\n");
   fprintf(f, "    if(out[0]!=out[0]) error |= 4;\n");
   fprintf(f, "    if(out[1]!=out[1]) error |= 8;\n");
   fprintf(f, "    if(out[0]*out[0]+out[1]*out[1] > lens_outer_pupil_radius*lens_outer_pupil_radius) error |= 16;\n");
