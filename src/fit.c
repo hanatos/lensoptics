@@ -15,6 +15,8 @@ static const float zoom = 0.0f;
 static int max_degree = 4;
 static int aspheric_elements = 1;
 
+static const float eps[] = {1e-6, 1e-6, 1e-8, 1e-8, 1e-9};
+
 static inline float ap(float x, int n, float p_dist, float p_rad, int dim)
 { // sample incoming pupil
   return 2.0f*(x/(n-1.0f)-.5f); // just return [-1,1] arbitrarily
@@ -210,9 +212,12 @@ int main(int argc, char *arg[])
         Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
           tmp.col(k) = A.row(permutation[k]).transpose();
+        //result = tmp.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
         result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
+        //result = tmp.colPivHouseholderQr().solve(b);
         residual = b-tmp*result;
         used(maxidx) = 1.0;
+        if(residual.squaredNorm() < eps[j] * degree_num_samples) break;
       }
 
       Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
@@ -315,9 +320,12 @@ int main(int argc, char *arg[])
         Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
           tmp.col(k) = A.row(permutation[k]).transpose();
+        //result = tmp.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
         result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
+        //result = tmp.colPivHouseholderQr().solve(b);
         residual = b-tmp*result;
         used(maxidx) = 1.0;
+        if(residual.squaredNorm() < eps[j] * degree_num_samples) break;
       }
 
       Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
