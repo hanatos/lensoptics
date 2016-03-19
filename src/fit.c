@@ -207,11 +207,11 @@ int main(int argc, char *arg[])
         permutation[coeff_cnt] = maxidx;
         coeff_cnt++;
 
-        Eigen::MatrixXd tmp2(degree_num_samples, coeff_cnt);
+        Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
-          tmp2.col(k) = A.row(permutation[k]).transpose();
-        result = (tmp2.transpose()*tmp2).ldlt().solve(tmp2.transpose()*b);
-        residual = b-tmp2*result;
+          tmp.col(k) = A.row(permutation[k]).transpose();
+        result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
+        residual = b-tmp*result;
         used(maxidx) = 1.0;
       }
 
@@ -312,11 +312,11 @@ int main(int argc, char *arg[])
         permutation[coeff_cnt] = maxidx;
         coeff_cnt++;
 
-        Eigen::MatrixXd tmp2(degree_num_samples, coeff_cnt);
+        Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
-          tmp2.col(k) = A.row(permutation[k]).transpose();
-        result = (tmp2.transpose()*tmp2).ldlt().solve(tmp2.transpose()*b);
-        residual = b-tmp2*result;
+          tmp.col(k) = A.row(permutation[k]).transpose();
+        result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
+        residual = b-tmp*result;
         used(maxidx) = 1.0;
       }
 
