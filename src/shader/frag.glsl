@@ -3,9 +3,6 @@ uniform samplerCube cubemap;
 uniform samplerCube minmaxdepthmap;
 uniform float dist;
 uniform float exposure;
-uniform mat4 invprojectionmatrix;
-
-float lambda = .55f;
 
 in data
 {
@@ -13,76 +10,113 @@ in data
 };
 
 layout(location = 0) out vec4 col;
-
-#define NUM_SAMPLES_X 0
-#define NUM_SAMPLES_Y 0
-#define SWAP(type, a, b){type swp = a; a = b; b = swp;}
-
-// a few static defines about general lens geometry
-#pragma include "init.h"
-
-float lens_ipow(const float x, const int exp)
-{
-  return pow(x, exp);
-}
+#define FLT_MAX 1e10
+const float lambda = 0.550f;
+const float lens_outer_pupil_radius = 26.000000; // scene facing radius in mm
+const float lens_inner_pupil_radius = 11.000000; // sensor facing radius in mm
+const float lens_length = 106.056999; // overall lens length in mm
+const float lens_focal_length = 41.099998; // approximate lens focal length in mm (BFL)
+const float lens_aperture_pos = 47.270996; // distance aperture -> outer pupil in mm
+const float lens_aperture_housing_radius = 9.000000; // lens housing radius at the aperture
+const float lens_outer_pupil_curvature_radius = 85.000000; // radius of curvature of the outer pupil
+const float lens_field_of_view = -0.741060; // cosine of the approximate field of view assuming a 35mm image
 
 void lens_sphereToCs(vec2 inpos, vec2 indir, out vec3 outpos, out vec3 outdir, float sphereCenter, float sphereRad)
 {
-  vec3 normal = vec3(inpos/sphereRad, sqrt(max(0, sphereRad*sphereRad-length(inpos))/abs(sphereRad)));
-  vec3 tempDir = vec3(indir, sqrt(max(0, 1-length(indir))));
+  vec3 normal = vec3(inpos/sphereRad, sqrt(max(0.0f, sphereRad*sphereRad-dot(inpos, inpos)))/abs(sphereRad));
+  vec3 tempDir = vec3(indir, sqrt(max(0.0f, 1.0f - dot(indir, indir))));
 
-  vec3 ex = vec3(normal.z, 0, -normal.x);
-  ex = normalize(ex);
+  vec3 ex = normalize(vec3(normal.z, 0, -normal.x));
   vec3 ey = cross(normal, ex);
   
   outdir = tempDir.x * ex + tempDir.y * ey + tempDir.z * normal;
   outpos = vec3(inpos, normal.z * sphereRad + sphereCenter);
 }
 
-void lens_csToSphere(vec3 inpos, vec3 indir, out vec2 outpos, out vec2 outdir, float sphereCenter, float sphereRad)
+float lens_ipow(const float a, const int exp)
 {
-  vec3 normal = vec3(inpos.xy, abs((inpos.z-sphereCenter)/sphereRad));
-  vec3 tempDir = normalize(indir);
-
-  vec3 ex = vec3(normal.z, 0, -normal.x);
-  ex = normalize(ex);
-  vec3 ey = cross(normal, ex);
-  outpos = inpos.xy;
-  outdir = vec2(dot(tempDir, ex), dot(tempDir, ey));
+    float ret = 1;
+    for(int i = 0; i < exp; i++)
+        ret *= a;
+    return ret;
 }
 
-// evaluates from sensor (in) to outer pupil (out).
-// input arrays are 5d [x,y,dx,dy,lambda] where dx and dy are the direction in
-// two-plane parametrization (that is the third component of the direction would be 1.0).
-// units are millimeters for lengths and micrometers for the wavelength (so visible light is about 0.4--0.7)
-// returns the transmittance computed from the polynomial.
-float lens_evaluate(vec4 sensor, out vec4 outer_pupil, float lambda, float dist)
+float eval(vec4 sensor, out vec4 outer)
 {
-  float x = sensor[0], y = sensor[1], dx = sensor[2], dy = sensor[3];
-#pragma include "pt_evaluate.h"
-  outer_pupil[0] = out_x; outer_pupil[1] = out_y; outer_pupil[2] = out_dx; outer_pupil[3] = out_dy;
-  return max(0.0f, out_transmittance);
+    const float x = sensor.x+dist*sensor.p;
+    const float y = sensor.y+dist*sensor.q;
+    const float dx = sensor.p;
+    const float dy = sensor.q;
+//pt_evaluate.h
+const float out_x =  + 6.37118 *dx + -1.51108 *x + -1.44991 *y*dx*dy + -0.0011872 *x*lens_ipow(y, 2) + 0.0829203 *lens_ipow(x, 2)*dx;
+const float out_y =  + 6.33625 *dy + -1.51159 *y + 0.0832582 *lens_ipow(y, 2)*dy + -1.4688 *x*dx*dy + -0.00118749 *lens_ipow(x, 2)*y;
+const float out_dx =  + -0.174918 *dx + -0.0828335 *x + 0.00080286 *lens_ipow(y, 2)*dx + 4.52295e-05 *x*lens_ipow(y, 2) + 5.10244e-05 *lens_ipow(x, 3);
+const float out_dy =  + -0.1742 *dy + -0.082897 *y + 5.17692e-05 *lens_ipow(y, 3) + 0.000611217 *lens_ipow(x, 2)*dy + 7.6413e-05 *lens_ipow(x, 2)*y;
+const float out_transmittance =  + 0.359772  + -0.000299792 *lens_ipow(y, 2) + -0.000424313 *lens_ipow(x, 2) + 0.0958115 *lens_ipow(lambda, 3) + -5.96e-10 *lens_ipow(x, 2)*lens_ipow(y, 6);
+    outer = vec4(out_x, out_y, out_dx, out_dy);
+    return out_transmittance;
 }
 
-// solves for the two directions [dx,dy], keeps the two positions [x,y] and the
-// wavelength, such that the path through the lens system will be valid, i.e.
-// lens_evaluate_aperture(in, out) will yield the same out given the solved for in.
-// in: point on sensor. out: point on aperture.
-float lens_pt_sample_aperture(inout vec4 sensor, inout vec4 aperture, float lambda, float dist)
+void sample_ap(inout vec4 sensor, inout vec4 aperture)
 {
-  float out_x = aperture[0], out_y = aperture[1], out_dx = aperture[2], out_dy = aperture[3], out_transmittance = 1.0f;
-  float x = sensor[0], y = sensor[1], dx = sensor[2], dy = sensor[3];
-#pragma include "pt_sample_aperture.h"
-  // directions may have changed, copy all to be sure.
-  aperture[0] = out_x; aperture[1] = out_y; aperture[2] = out_dx; aperture[3] = out_dy;
-  sensor[0] = x; sensor[1] = y; sensor[2] = dx; sensor[3] = dy;
-  return max(0.0f, out_transmittance);
+float x = sensor.x, y = sensor.y, dx = sensor.z, dy = sensor.w;
+float out_x = aperture.x, out_y = aperture.y, out_dx = aperture.z, out_dy = aperture.w;
+//pt_sample_aperture.h
+float pred_x;
+float pred_y;
+float pred_dx;
+float pred_dy;
+float sqr_err = FLT_MAX;
+for(int k=0;k<5&&sqr_err > 1e-4f;k++)
+{
+  const float begin_x = x + dist * dx;
+  const float begin_y = y + dist * dy;
+  const float begin_dx = dx;
+  const float begin_dy = dy;
+  const float begin_lambda = lambda;
+  pred_x =  + 32.4104 *begin_dx + 0.451791 *begin_x + 0.447088 *begin_x*lens_ipow(begin_dx, 2) + -0.000244526 *begin_x*lens_ipow(begin_y, 2) + -0.000302011 *lens_ipow(begin_x, 3);
+  pred_y =  + 32.4102 *begin_dy + 0.451611 *begin_y + 0.449621 *begin_y*lens_ipow(begin_dy, 2) + -0.00030145 *lens_ipow(begin_y, 3) + -0.000240359 *lens_ipow(begin_x, 2)*begin_y;
+  pred_dx =  + -0.741653 *begin_dx + -0.0407318 *begin_x + -0.870564 *lens_ipow(begin_dx, 3) + -1.72083e-05 *begin_x*lens_ipow(begin_y, 2) + -1.7307e-05 *lens_ipow(begin_x, 3);
+  pred_dy =  + -0.741947 *begin_dy + -0.0407371 *begin_y + -0.859427 *lens_ipow(begin_dy, 3) + -1.72345e-05 *lens_ipow(begin_y, 3) + -1.72529e-05 *lens_ipow(begin_x, 2)*begin_y;
+  float dx1_domega0[2][2];
+  dx1_domega0[0][0] =  + 32.4104  + 0.894175 *begin_x*begin_dx+0.0f;
+  dx1_domega0[0][1] = +0.0f;
+  dx1_domega0[1][0] = +0.0f;
+  dx1_domega0[1][1] =  + 32.4102  + 0.899242 *begin_y*begin_dy+0.0f;
+  float invJ[2][2];
+  const float invdet = 1.0f/(dx1_domega0[0][0]*dx1_domega0[1][1] - dx1_domega0[0][1]*dx1_domega0[1][0]);
+  invJ[0][0] =  dx1_domega0[1][1]*invdet;
+  invJ[1][1] =  dx1_domega0[0][0]*invdet;
+  invJ[0][1] = -dx1_domega0[0][1]*invdet;
+  invJ[1][0] = -dx1_domega0[1][0]*invdet;
+  const float dx1[2] = {out_x - pred_x, out_y - pred_y};
+  for(int i=0;i<2;i++)
+  {
+    dx += invJ[0][i]*dx1[i];
+    dy += invJ[1][i]*dx1[i];
+  }
+  sqr_err = dx1[0]*dx1[0] + dx1[1]*dx1[1];
+}
+out_dx = pred_dx;
+out_dy = pred_dy;
+
+sensor = vec4(x, y, dx, dy);
+aperture = vec4(out_x, out_y, out_dx, out_dy);
 }
 
-vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1])
+#define NUM_SAMPLES_X 2
+#define NUM_SAMPLES_Y 3
+
+#define SWAP(type, a, b){type swp = a; a = b; b = swp;}
+
+vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], float transmittance[NUM_SAMPLES_X*NUM_SAMPLES_Y+1])
 {
-    vec3 pos = positions[NUM_SAMPLES_X*NUM_SAMPLES_Y];
-    vec3 dir = directions[NUM_SAMPLES_X*NUM_SAMPLES_Y];
+  vec4 ret = vec4(0);
+  //for(int i = 0; i < NUM_SAMPLES_X*NUM_SAMPLES_Y + 1; i++)
+  int i = NUM_SAMPLES_X*NUM_SAMPLES_Y;
+  {
+    vec3 pos = positions[i];
+    vec3 dir = directions[i];
     
     float near = 2*lens_outer_pupil_curvature_radius;
     float far = 20000;
@@ -94,7 +128,6 @@ vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NU
     t[4] = (-pos.z-near)/dir.z;
     t[5] = (-pos.z+near)/dir.z;
     
-    //return vec4(color);
     t[6] = (-pos.x-far)/dir.x;
     t[7] = (-pos.x+far)/dir.x;
     t[8] = (-pos.y-far)/dir.y;
@@ -103,7 +136,7 @@ vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NU
     t[11] = (-pos.z+far)/dir.z;
     
     int mint = 0;
-    for(int i = 1; i < 6; i++)
+        for(int i = 1; i < 6; i++)
         if((t[mint] < 0 || t[mint] > t[i]) && t[i] > 0)
             mint = i;
 
@@ -179,7 +212,7 @@ vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NU
         vec2 minmaxDepth = (textureLod(minmaxdepthmap, r0 * lookupFac + lookupOff, lod).rg)/(far);
         //TODO dependency on dimensions of ray bundle
         color.rgb = textureLod(cubemap, r0 * lookupFac + lookupOff, 0).rgb;
-        color.rgb = textureLod(minmaxdepthmap, r0 * lookupFac + lookupOff, 0).rrr;
+        //color.rgb = textureLod(minmaxdepthmap, r0 * lookupFac + lookupOff, 0).rrr;
         float dist = -1;
         
         // if the current position is before the min-plane, choose max step size s.t. we reach the min-plane,
@@ -212,46 +245,75 @@ vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NU
         
         r0 += dist*(1+1e-7) * rd;
     }
-    color.rgba = vec4(0);
-    float depth = r0[faceIdx]*far+(1-r0[faceIdx])*near;
-    for(int i = 0; i < NUM_SAMPLES_X*NUM_SAMPLES_Y; i++)
+    color.rgb *= transmittance[i];
+    ret += color;
+  }
+  return ret;
+}
+
+//copied from image_head.cl
+int clip_aperture(const float x, const float y, const float radius)
+{
+    // early out
+    //if(x*x + y*y > radius*radius) return 0;
+    const int num_blades = 8;
+    float xx = radius;
+    float yy = 0.0f;
+    for(int b=1;b<num_blades+1;b++)
     {
-        //positions[i] += depth * directions[i];
-        if(any(greaterThan(abs(positions[i]), vec3(0))) || any(greaterThan(abs(directions[i]), vec3(0))))
-        {
-            color.rgba += vec4(texture(cubemap, positions[i] + depth * directions[i]).rgb, 1);
-        }
+        float tmpx, tmpy;
+        tmpy = sin(2.0f*3.14159/num_blades * b);
+        tmpx = cos(2.0f*3.14159/num_blades * b);
+        tmpx *= radius;
+        tmpy *= radius;
+        const float normalx = xx + tmpx;
+        const float normaly = yy + tmpy;
+        float dot0 = (normalx)*(x-xx) + (normaly)*(y-yy);
+        if(dot0 > 0.0f) return 0;
+        xx = tmpx;
+        yy = tmpy;
     }
-    
-    return color;
+    return 1;
 }
 
 void main()
 {    
-    vec4 sensor_center = vec4(sensorPos, -sensorPos/(lens_length-lens_aperture_pos+dist));
-    vec4 aperture_center, out_center;
-    lens_pt_sample_aperture(sensor_center, aperture_center, lambda, dist);
-    float transmittance = lens_evaluate(sensor_center, out_center, lambda, dist);
-    vec3 pos, dir;
-    lens_sphereToCs(out_center.xy, out_center.zw, pos, dir, lens_length-lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);
+    vec4 center = vec4(sensorPos, -sensorPos/(lens_length-lens_aperture_pos+dist));
+    vec4 aperture = vec4(0);
+    sample_ap(center, aperture);
     
+    vec4 outer = vec4(0);
+    float t = eval(center, outer);
+    
+    vec3 p, d;
+    lens_sphereToCs(outer.xy, outer.zw, p, d, 0, lens_outer_pupil_curvature_radius);
+    if(length(outer.xy) > lens_outer_pupil_radius)
+        t = 0;
     vec4 color;
     vec3 ray_positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1];
     vec3 ray_directions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1];
-    ray_positions[NUM_SAMPLES_X*NUM_SAMPLES_Y] = pos;
-    ray_directions[NUM_SAMPLES_X*NUM_SAMPLES_Y] = dir;
+    float transmittance[NUM_SAMPLES_X*NUM_SAMPLES_Y+1];
+    transmittance[NUM_SAMPLES_X*NUM_SAMPLES_Y] = t;
+    ray_positions[NUM_SAMPLES_X*NUM_SAMPLES_Y] = p;
+    ray_directions[NUM_SAMPLES_X*NUM_SAMPLES_Y] = d;
     
     for(int i = 0; i < NUM_SAMPLES_X; i++)
         for(int j = 0; j < NUM_SAMPLES_Y; j++)
         {
-            vec4 sensor_pos = sensor_center;
-            vec4 aperture_pos = vec4(sin(1.0f*j/NUM_SAMPLES_Y), cos(1.0f*j/NUM_SAMPLES_Y), 0, 0)*sqrt(lens_aperture_housing_radius*i/NUM_SAMPLES_X);
-            vec4 out_pos;
-            lens_pt_sample_aperture(sensor_pos, aperture_pos, lambda, dist);
-            
-            float transmittance = lens_evaluate(sensor_pos, out_pos, lambda, dist);
-            lens_sphereToCs(out_pos.xy, out_pos.zw, ray_positions[i*NUM_SAMPLES_Y+j], ray_directions[i*NUM_SAMPLES_Y+j], lens_length-lens_outer_pupil_curvature_radius, lens_outer_pupil_curvature_radius);
+            vec4 ray = center;
+            //sample aperture (as disk)
+            vec4 aperture = vec4(sin(6.28f*j/NUM_SAMPLES_Y), cos(6.28f*j/NUM_SAMPLES_Y), 0, 0)*sqrt(lens_aperture_housing_radius*i/NUM_SAMPLES_X);
+            sample_ap(ray, aperture);
+            vec4 outer;
+            float t = eval(ray, outer);
+            lens_sphereToCs(outer.xy, outer.zw, p, d, 0, lens_outer_pupil_curvature_radius);
+            if(clip_aperture(aperture.x, aperture.y, lens_aperture_housing_radius) == 0 || length(outer.xy) > lens_outer_pupil_radius)
+                t = 0;
+            transmittance[i*NUM_SAMPLES_Y+j] = t;
+            ray_positions[i*NUM_SAMPLES_Y+j] = p;
+            ray_directions[i*NUM_SAMPLES_Y+j] = d;
         }
-    color = traceRays(ray_positions, ray_directions);
+    
+    color = traceRays(ray_positions, ray_directions, transmittance);
     col = color/color.a/exposure;
 }
