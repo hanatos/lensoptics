@@ -23,10 +23,8 @@
 using std::string;
 using std::stringstream;
 
-static GLuint vaoCube, vaoQuad, *program, texture, fbo, cubemapColor, cubemapMinMaxDepth;
-static GLuint sceneNumPrims = 0;
-static float tilt = 0, shift = 0, dist = -20, rotatez = 0, rotatey = 0, posx = 0, posy = 0, posz = 0, exposure = 1;
-static bool updateCubemap = true;
+static GLuint vaoQuad, *program, cubemapColor, cubemapMinMaxDepth;
+static float dist = -20, exposure = 1;
 static int screenWidth = 1080, screenHeight = 720;
 static int cubemapSize = 2048;
 
@@ -36,20 +34,11 @@ static void reloadShaders();
 
 void updateUniforms()
 {
-    glUseProgram(program[1]);
-    GLint tiltLoc = glGetUniformLocation(program[1], "tilt");
-    glUniform1f(tiltLoc, tilt);
-    GLint shiftLoc = glGetUniformLocation(program[1], "shift");
-    glUniform1f(shiftLoc, shift);
-    GLint distLoc = glGetUniformLocation(program[1], "dist");
+    glUseProgram(program[0]);
+    GLint distLoc = glGetUniformLocation(program[0], "dist");
     glUniform1f(distLoc, dist);
-    GLint expLoc = glGetUniformLocation(program[1], "exposure");
+    GLint expLoc = glGetUniformLocation(program[0], "exposure");
     glUniform1f(expLoc, exposure);
-
-    glm::mat4 projection = glm::perspective(3.14159265f/2, 1.0f, 1.f, 4000.0f);
-    glm::mat4 invProjection = glm::inverse(projection);
-    GLint invProjMatLoc = glGetUniformLocation(program[1], "invprojectionmatrix");
-    glUniformMatrix4fv(invProjMatLoc, 1, GL_FALSE, &invProjection[0][0]);
     glUseProgram(0);
 }
 
@@ -66,14 +55,6 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         return;
     }
 
-    if(key == GLFW_KEY_R && action & (GLFW_PRESS | GLFW_REPEAT))
-        shift += 0.5;
-    if(key == GLFW_KEY_F && action & (GLFW_PRESS | GLFW_REPEAT))
-        shift -= 0.5;
-    if(key == GLFW_KEY_T && action & (GLFW_PRESS | GLFW_REPEAT))
-        tilt -= 0.05;
-    if(key == GLFW_KEY_G && action & (GLFW_PRESS | GLFW_REPEAT))
-        tilt += 0.05;
     if(key == GLFW_KEY_N && action & (GLFW_PRESS | GLFW_REPEAT))
         dist += 0.5;
     if(key == GLFW_KEY_H && action & (GLFW_PRESS | GLFW_REPEAT))
@@ -84,50 +65,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         exposure /= 2;
     if(key == GLFW_KEY_B && action & (GLFW_PRESS | GLFW_REPEAT))
         reloadShaders();
-    
 
-    glm::mat4 rotation = glm::mat4(1);
-    rotation = glm::rotate(rotation, -rotatez, glm::vec3(0, -1, 0));
-    rotation = glm::rotate(rotation, -rotatey, glm::vec3(1, 0, 0));
-    
-    float speed = 10;
-    
-    if(key == GLFW_KEY_W && action & (GLFW_PRESS | GLFW_REPEAT))
-    {
-        glm::vec4 dir(0, 0, -speed, 0);
-        dir = rotation * dir;
-        posx += dir.x;
-        posy += dir.y;
-        posz += dir.z;
-        updateCubemap = true;
-    }
-    if(key == GLFW_KEY_S && action & (GLFW_PRESS | GLFW_REPEAT))
-    {
-        glm::vec4 dir(0, 0, speed, 0);
-        dir = rotation * dir;
-        posx += dir.x;
-        posy += dir.y;
-        posz += dir.z;
-        updateCubemap = true;
-    }
-    if(key == GLFW_KEY_A && action & (GLFW_PRESS | GLFW_REPEAT))
-    {
-        glm::vec4 dir(speed, 0, 0, 0);
-        dir = rotation * dir;
-        posx += dir.x;
-        posy += dir.y;
-        posz += dir.z;
-        updateCubemap = true;
-    }
-    if(key == GLFW_KEY_D && action & (GLFW_PRESS | GLFW_REPEAT))
-    {
-        glm::vec4 dir(-speed, 0, 0, 0);
-        dir = rotation * dir;
-        posx += dir.x;
-        posy += dir.y;
-        posz += dir.z;
-        updateCubemap = true;
-    }
     updateUniforms();
 }
 
@@ -146,16 +84,9 @@ static void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos)
         return;
     } else {
         //set rotation
-        double dx, dy;
-        dx = xpos - prevx;
-        dy = ypos - prevy;
-        
-        rotatez += dx / screenWidth;
-        rotatey += dy / screenHeight;
-        
+
         prevx = xpos;
         prevy = ypos;
-        updateCubemap = true;
     }
     updateUniforms();
 }
@@ -216,7 +147,7 @@ static void initQuad()
 char *readFile(string path, int *fsize)
 {
 	FILE *file;
-	int filesize;
+	unsigned int filesize;
 	char *fileContent;
 
 	file = fopen(path.c_str(), "rb");
@@ -331,7 +262,7 @@ void linkProgram(GLuint *program)
 
     GLint success;
     glGetProgramiv(prog, GL_LINK_STATUS, &success);
-    if(success == GL_FALSE)
+    //if(success == GL_FALSE)
     {
         GLint errLength;
         char *errMsg;
@@ -348,23 +279,37 @@ void linkProgram(GLuint *program)
 
 static void initPrograms()
 {
-    program = new GLuint[4];    
-    program[1] = loadCompileProgram("src/shader/vert.glsl", "", "", "src/shader/geom.glsl", "src/shader/frag.glsl");
+    program = new GLuint[2];    
+    program[0] = loadCompileProgram("src/shader/vert.glsl", "", "", "src/shader/geom.glsl", "src/shader/frag.glsl");
+    CHECK_ERROR;
 
-    linkProgram(&program[1]);
-    glUseProgram(program[1]);
-    GLint cubemapLoc = glGetUniformLocation(program[1], "cubemap");
+    linkProgram(&program[0]);
+    CHECK_ERROR;
+    glUseProgram(program[0]);
+    CHECK_ERROR;
+    GLint cubemapLoc = glGetUniformLocation(program[0], "cubemap");
+    CHECK_ERROR;
     glUniform1i(cubemapLoc, 0);
+    CHECK_ERROR;
     glActiveTexture(GL_TEXTURE0);
+    CHECK_ERROR;
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapColor);
-    GLint minmaxdepthmapLoc = glGetUniformLocation(program[1], "minmaxdepthmap");
-    glUniform1i(minmaxdepthmapLoc, 2);
-    glActiveTexture(GL_TEXTURE2);
+    CHECK_ERROR;
+    GLint minmaxdepthmapLoc = glGetUniformLocation(program[0], "minmaxdepthmap");
+    CHECK_ERROR;
+    glUniform1i(minmaxdepthmapLoc, 1);
+    CHECK_ERROR;
+    glActiveTexture(GL_TEXTURE1);
+    CHECK_ERROR;
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapMinMaxDepth);
+    CHECK_ERROR;
     updateUniforms();
+    CHECK_ERROR;
     
-    program[2] = loadCompileComputeProgram("src/shader/minmax.cs.glsl");
-    linkProgram(&program[2]);
+    program[1] = loadCompileComputeProgram("src/shader/minmax.cs.glsl");
+    CHECK_ERROR;
+    linkProgram(&program[1]);
+    CHECK_ERROR;
 }
 
 static void reloadShaders()
@@ -596,7 +541,7 @@ static void loadCubemap()
 
 static void filterCubemapPass()
 {
-    glUseProgram(program[2]);
+    glUseProgram(program[1]);
     CHECK_ERROR;
     int levels = floor(log2f(1000));
     
@@ -621,15 +566,15 @@ static void renderSecondPass()
     glClearColor(0, 0, 0, 0);
     glViewport(0, 0, screenWidth, screenHeight);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glUseProgram(program[1]);
+    glUseProgram(program[0]);
     glBindVertexArray(vaoQuad);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapColor);
-    glActiveTexture(GL_TEXTURE2);
+    glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapMinMaxDepth);
     
-    GLint minDepthLoc = glGetUniformLocation(program[1], "minDepth");
-    GLint maxDepthLoc = glGetUniformLocation(program[1], "maxDepth");
+    GLint minDepthLoc = glGetUniformLocation(program[0], "minDepth");
+    GLint maxDepthLoc = glGetUniformLocation(program[0], "maxDepth");
     
     glUniform1f(minDepthLoc, 0);
     glUniform1f(maxDepthLoc, 4000);
