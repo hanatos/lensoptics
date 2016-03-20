@@ -47,6 +47,9 @@ gencode: Makefile src/gencode.c ${HEADERS}
 
 lt-aperture-sampling: Makefile src/sample_ap_lt.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} -Irender/${lensname} src/sample_ap_lt.c -o lt-aperture-sampling ${LDFLAGS}
+	
+glRender: Makefile src/render_gl.c
+	${CXX} ${OPTFLAGS} ${CXXFLAGS} src/render_gl.c ${LDFLAGS} -o glRender -lGLEW -lGL -lGLU -lglfw
 
 clean:
 	rm -f view fit gencode fresnel fresnel.dat simplify genpoly printpoly sample-plot sample-plot.dat lt_convergence.dat lt_convergence_profile.dat lt-aperture-sampling
