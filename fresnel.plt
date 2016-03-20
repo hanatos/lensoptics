@@ -11,8 +11,10 @@ set key bottom right
 set terminal pdf size 11.1,11.1 font ",28"
 # set title 'radial transmittance profile $lens'
 set title lens
+set yrange [0:0.5]
+set autoscale ymax
 set output 'fresnel-profile.pdf'
-plot 'fresnel-profile.dat' u 0:1 w l title 'ray traced',\
-     'fresnel-profile.dat' u 0:2 w l title 'polynomial'
+plot 'fresnel-profile.dat' u 0:1 w l lw 4 title 'ray traced',\
+     'fresnel-profile.dat' u 0:2 w l lw 4 title 'polynomial'
 unset output
 #!pdfcrop 'fresnel.pdf' 'fresnel.pdf'
