@@ -1,7 +1,8 @@
 # LENS=double-gauss-1930
 # LENS=double-gauss-angenieux
 # LENS=wideangle-1971
-LENS=fisheye-aspherical
+# LENS=fisheye-aspherical
+LENS=canon-anamorphic
 CC=gcc
 CFLAGS=-D_GNU_SOURCE -std=c11 -Wall -g -I ../render/ -I../render/${LENS}
 # OPTFLAGS=-ggdb3

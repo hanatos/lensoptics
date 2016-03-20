@@ -70,9 +70,9 @@ int main(int argc, char *argv[])
     // initial guess: sensor = 0, direction via aperture sampling
     sen[0] = sen[1] = 0.0f;
 
-    lens_lt_sample_aperture(p, ape, sen, out, sen[4]);
+    float transmittance = lens_lt_sample_aperture(p, ape, sen, out, sen[4]);
     // compute visibility of sample: pixel coordinate, inner pupil, outer pupil
-    int visible = 1;
+    int visible = transmittance > 0.0f;
 
     // clip at inward facing pupil:
     const float px = sen[0] + sen[2] * lens_focal_length, py = sen[1] + sen[3]*lens_focal_length;
@@ -117,11 +117,13 @@ int main(int argc, char *argv[])
     // initial guess: sensor = 0, direction via aperture sampling
     sen[0] = sen[1] = 0.0f;
 
-    lens_lt_sample_aperture(p, ape, sen, out, sen[4]);
-
-    pt[num_visible].x = out[0]/lens_outer_pupil_radius;
-    pt[num_visible].y = out[1]/lens_outer_pupil_radius;
-    num_visible++;
+    float transmittance = lens_lt_sample_aperture(p, ape, sen, out, sen[4]);
+    if(transmittance > 0.0f)
+    {
+      pt[num_visible].x = out[0]/lens_outer_pupil_radius;
+      pt[num_visible].y = out[1]/lens_outer_pupil_radius;
+      num_visible++;
+    }
   }
 
   hull_size = convex_hull(pt, num_visible, hull);
