@@ -12,14 +12,16 @@ in data
 layout(location = 0) out vec4 col;
 #define FLT_MAX 1e10
 const float lambda = 0.550f;
-const float lens_outer_pupil_radius = 26.000000; // scene facing radius in mm
-const float lens_inner_pupil_radius = 11.000000; // sensor facing radius in mm
-const float lens_length = 106.056999; // overall lens length in mm
-const float lens_focal_length = 41.099998; // approximate lens focal length in mm (BFL)
-const float lens_aperture_pos = 47.270996; // distance aperture -> outer pupil in mm
-const float lens_aperture_housing_radius = 9.000000; // lens housing radius at the aperture
-const float lens_outer_pupil_curvature_radius = 85.000000; // radius of curvature of the outer pupil
-const float lens_field_of_view = -0.741060; // cosine of the approximate field of view assuming a 35mm image
+
+//init.h
+const float lens_outer_pupil_radius = 165.000000; // scene facing radius in mm
+const float lens_inner_pupil_radius = 20.000000; // sensor facing radius in mm
+const float lens_length = 236.087021; // overall lens length in mm
+const float lens_focal_length = 22.787001; // approximate lens focal length in mm (BFL)
+const float lens_aperture_pos = 134.100006; // distance aperture -> outer pupil in mm
+const float lens_aperture_housing_radius = 15.000000; // lens housing radius at the aperture
+const float lens_outer_pupil_curvature_radius = 204.582993; // radius of curvature of the outer pupil
+const float lens_field_of_view = -0.845934; // cosine of the approximate field of view assuming a 35mm image
 
 void lens_sphereToCs(vec2 inpos, vec2 indir, out vec3 outpos, out vec3 outdir, float sphereCenter, float sphereRad)
 {
@@ -48,11 +50,11 @@ float eval(vec4 sensor, out vec4 outer)
     const float dx = sensor.p;
     const float dy = sensor.q;
 //pt_evaluate.h
-const float out_x =  + 6.37118 *dx + -1.51108 *x + -1.44991 *y*dx*dy + -0.0011872 *x*lens_ipow(y, 2) + 0.0829203 *lens_ipow(x, 2)*dx;
-const float out_y =  + 6.33625 *dy + -1.51159 *y + 0.0832582 *lens_ipow(y, 2)*dy + -1.4688 *x*dx*dy + -0.00118749 *lens_ipow(x, 2)*y;
-const float out_dx =  + -0.174918 *dx + -0.0828335 *x + 0.00080286 *lens_ipow(y, 2)*dx + 4.52295e-05 *x*lens_ipow(y, 2) + 5.10244e-05 *lens_ipow(x, 3);
-const float out_dy =  + -0.1742 *dy + -0.082897 *y + 5.17692e-05 *lens_ipow(y, 3) + 0.000611217 *lens_ipow(x, 2)*dy + 7.6413e-05 *lens_ipow(x, 2)*y;
-const float out_transmittance =  + 0.359772  + -0.000299792 *lens_ipow(y, 2) + -0.000424313 *lens_ipow(x, 2) + 0.0958115 *lens_ipow(lambda, 3) + -5.96e-10 *lens_ipow(x, 2)*lens_ipow(y, 6);
+const float out_x =  + 11.5082 *dx + -7.83728 *x + -533.923 *dx*lens_ipow(dy, 2) + -541.852 *lens_ipow(dx, 3) + 0.000868343 *lens_ipow(x, 2)*lens_ipow(y, 2)*dx;
+const float out_y =  + 11.8302 *dy + -7.83372 *y + -544.861 *lens_ipow(dy, 3) + -536.503 *lens_ipow(dx, 2)*dy + 0.000876488 *lens_ipow(x, 2)*lens_ipow(y, 2)*dy;
+const float out_dx =  + -0.0644007 *dx + -0.0647349 *x + -3.46031 *dx*lens_ipow(dy, 2) + -2.8413 *lens_ipow(dx, 3) + 3.83374e-05 *lens_ipow(x, 3);
+const float out_dy =  + -0.176798 *dy + -0.064167 *y + -1.89333 *lens_ipow(dy, 3) + 4.10222e-05 *lens_ipow(y, 3) + 8.35355e-05 *lens_ipow(x, 2)*y;
+const float out_transmittance =  + 0.353663  + -8.85901e-05 *lens_ipow(x, 2) + 0.0898054 *lens_ipow(lambda, 3) + -3.63356e-07 *lens_ipow(y, 4) + -8.90844e-07 *lens_ipow(x, 2)*lens_ipow(y, 2);
     outer = vec4(out_x, out_y, out_dx, out_dy);
     return out_transmittance;
 }
@@ -74,15 +76,15 @@ for(int k=0;k<5&&sqr_err > 1e-4f;k++)
   const float begin_dx = dx;
   const float begin_dy = dy;
   const float begin_lambda = lambda;
-  pred_x =  + 32.4104 *begin_dx + 0.451791 *begin_x + 0.447088 *begin_x*lens_ipow(begin_dx, 2) + -0.000244526 *begin_x*lens_ipow(begin_y, 2) + -0.000302011 *lens_ipow(begin_x, 3);
-  pred_y =  + 32.4102 *begin_dy + 0.451611 *begin_y + 0.449621 *begin_y*lens_ipow(begin_dy, 2) + -0.00030145 *lens_ipow(begin_y, 3) + -0.000240359 *lens_ipow(begin_x, 2)*begin_y;
-  pred_dx =  + -0.741653 *begin_dx + -0.0407318 *begin_x + -0.870564 *lens_ipow(begin_dx, 3) + -1.72083e-05 *begin_x*lens_ipow(begin_y, 2) + -1.7307e-05 *lens_ipow(begin_x, 3);
-  pred_dy =  + -0.741947 *begin_dy + -0.0407371 *begin_y + -0.859427 *lens_ipow(begin_dy, 3) + -1.72345e-05 *lens_ipow(begin_y, 3) + -1.72529e-05 *lens_ipow(begin_x, 2)*begin_y;
+  pred_x =  + 38.3526 *begin_dx + 0.114175 *begin_x + -14.6495 *lens_ipow(begin_dx, 3) + 0.527942 *begin_y*begin_dx*begin_dy + -0.286615 *begin_x*lens_ipow(begin_dy, 2);
+  pred_y =  + 38.357 *begin_dy + 0.114619 *begin_y + -14.602 *lens_ipow(begin_dy, 3) + -0.291044 *begin_y*lens_ipow(begin_dx, 2) + 0.5251 *begin_x*begin_dx*begin_dy;
+  pred_dx =  + -0.810404 *begin_dx + -0.0302534 *begin_x + -1.17548 *begin_dx*lens_ipow(begin_dy, 2) + 0.0338555 *begin_x*lens_ipow(begin_dx, 2) + -5.26566e-06 *lens_ipow(begin_x, 3);
+  pred_dy =  + -0.809669 *begin_dy + -0.0302208 *begin_y + -1.17342 *lens_ipow(begin_dx, 2)*begin_dy + 0.0342015 *begin_y*lens_ipow(begin_dy, 2) + -5.46446e-06 *lens_ipow(begin_y, 3);
   float dx1_domega0[2][2];
-  dx1_domega0[0][0] =  + 32.4104  + 0.894175 *begin_x*begin_dx+0.0f;
-  dx1_domega0[0][1] = +0.0f;
-  dx1_domega0[1][0] = +0.0f;
-  dx1_domega0[1][1] =  + 32.4102  + 0.899242 *begin_y*begin_dy+0.0f;
+  dx1_domega0[0][0] =  + 38.3526  + -43.9485 *lens_ipow(begin_dx, 2) + 0.527942 *begin_y*begin_dy+0.0f;
+  dx1_domega0[0][1] =  + 0.527942 *begin_y*begin_dx + -0.573229 *begin_x*begin_dy+0.0f;
+  dx1_domega0[1][0] =  + -0.582087 *begin_y*begin_dx + 0.5251 *begin_x*begin_dy+0.0f;
+  dx1_domega0[1][1] =  + 38.357  + -43.8059 *lens_ipow(begin_dy, 2) + 0.5251 *begin_x*begin_dx+0.0f;
   float invJ[2][2];
   const float invdet = 1.0f/(dx1_domega0[0][0]*dx1_domega0[1][1] - dx1_domega0[0][1]*dx1_domega0[1][0]);
   invJ[0][0] =  dx1_domega0[1][1]*invdet;
@@ -104,16 +106,90 @@ sensor = vec4(x, y, dx, dy);
 aperture = vec4(out_x, out_y, out_dx, out_dy);
 }
 
-#define NUM_SAMPLES_X 2
-#define NUM_SAMPLES_Y 3
+#define NUM_SAMPLES_X 10
+#define NUM_SAMPLES_Y 10
 
 #define SWAP(type, a, b){type swp = a; a = b; b = swp;}
 
 vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], float transmittance[NUM_SAMPLES_X*NUM_SAMPLES_Y+1])
 {
-  vec4 ret = vec4(0);
-  //for(int i = 0; i < NUM_SAMPLES_X*NUM_SAMPLES_Y + 1; i++)
-  int i = NUM_SAMPLES_X*NUM_SAMPLES_Y;
+  #if 0
+  vec4 ret = vec4(0,0,0,1);
+  //state of the ray (t_min, t_max, done)
+  vec3 raystate[NUM_SAMPLES_X*NUM_SAMPLES_Y+1];
+  int faceidx[NUM_SAMPLES_X*NUM_SAMPLES_Y+1];
+  vec2 texture_dimensions = textureSize(minmaxdepthmap, 0);
+
+  //initialize raystate
+  for(int i = 0; i < NUM_SAMPLES_X*NUM_SAMPLES_Y + 1; i++) raystate[i] = vec3(2*lens_outer_pupil_curvature_radius, FLT_MAX, 0);
+  
+  //for each face of the cubemap:
+  //for(int face = 0; face < 6; face++)
+  {
+  
+    int numLevels = textureQueryLevels(minmaxdepthmap);
+    //iterate through mipmap levels containing minimum and maximum depth
+    for(int j = 0; j < numLevels; j++)
+    {
+      vec3 dir = vec3(0);
+      for(int i = 0; i < NUM_SAMPLES_X*NUM_SAMPLES_Y + 1; i++) dir += directions[i];
+      int face = abs(dir.x)>abs(dir.y)?(abs(dir.x)>abs(dir.z)?0:2):(abs(dir.y)>abs(dir.z)?1:2);
+      /*
+      for(int i = 0; i < NUM_SAMPLES_X*NUM_SAMPLES_Y + 1; i++)
+        faceidx[i] = abs(directions[i].x)>abs(directions[i].y)?(abs(directions[i].x)>abs(directions[i].z)?0:2):(abs(directions[i].y)>abs(directions[i].z)?1:2);
+      //renormalize directions
+      */
+      for(int i = 0; i < NUM_SAMPLES_X*NUM_SAMPLES_Y + 1; i++) directions[i] /= abs(directions[i][face]);
+      
+      //calculate footprint of ray-bundle
+      vec3 tcMax = vec3(-FLT_MAX);
+      vec3 tcMin = vec3(FLT_MAX);
+      for(int i = 0; i < NUM_SAMPLES_X*NUM_SAMPLES_Y + 1; i++)
+      {
+        if(raystate[i].z > 0)
+          continue;
+        //intersections of ray with planes at tmin and tmax
+        vec3 rayMin = vec3(positions[i] + directions[i]*(raystate[i].x-positions[i][face]));
+        vec3 rayMax = vec3(positions[i] + directions[i]*(raystate[i].y-positions[i][face]));/*
+        rayMin /= abs(rayMin[face]);
+        rayMax /= abs(rayMin[face]);*/
+        tcMin = min(tcMin, rayMin);
+        tcMin = min(tcMin, rayMax);
+        tcMax = max(tcMax, rayMin);
+        tcMax = max(tcMax, rayMax);
+      }
+      
+      //get minimum and maximum depth of cubemap at that point (and mipmap level)
+      float lod = log2(length(tcMax-tcMin));
+      vec2 minmaxDepth = textureLod(minmaxdepthmap, 0.5f * (tcMin + tcMax), lod).rg;
+      vec4 color = textureLod(cubemap, 0.5f * (tcMin + tcMax), lod);
+      //return textureLod(minmaxdepthmap, positions[NUM_SAMPLES_X*NUM_SAMPLES_Y], dist);
+      //vec4 color = texture(cubemap, 0.5f * (tcMin + tcMax));
+      //vec2 minmaxDepth = textureLod(minmaxdepthmap, positions[0] + 1000 * directions[0], 0).rg;
+      //calculate intersections of the rays with planes at these depth-values
+      //and clamp the rays to this range
+      for(int i = 0; i < NUM_SAMPLES_X*NUM_SAMPLES_Y + 1; i++)
+      {
+        vec2 tNew = max(vec2(0), minmaxDepth - vec2(positions[i][face]));
+        raystate[i].x = max(raystate[i].x, tNew.x);
+        raystate[i].y = min(raystate[i].y, tNew.y);
+        //if the ray hit a scene point, accumulate the color
+        if(raystate[i].y <= raystate[i].x && raystate[i].z < 1)
+        //if(j == 0)
+        {
+          ret.rgb += color.rgb * transmittance[i];
+          ret.a += 1;
+          raystate[i].z = 1;
+        }
+      }
+    }
+  }
+  return ret;
+  #else
+  vec4 ret = vec4(0,0,0,1);
+  vec3 centerRayPos;
+  for(int i = NUM_SAMPLES_X*NUM_SAMPLES_Y; i >= 0; i--)
+  //int i = NUM_SAMPLES_X*NUM_SAMPLES_Y;
   {
     vec3 pos = positions[i];
     vec3 dir = directions[i];
@@ -150,8 +226,6 @@ vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NU
     int sig = sign(mint&1)*2-1;
     int sig2 = sign(maxt&1)*2-1;
     
-    mat4 proj = mat4(vec4(1,0,0,0), vec4(0,1,0,0), vec4(0,0,far/(far-near),1), vec4(0,0,-far*near/(far-near),0));
-
     vec3 r0 = (pos + t[mint] * dir)/(near*2)+0.5;
     r0[faceIdx] = 0;
     vec3 rmax = (pos + t[mint+6] * dir)/(far*2)+0.5;
@@ -211,8 +285,17 @@ vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NU
         
         vec2 minmaxDepth = (textureLod(minmaxdepthmap, r0 * lookupFac + lookupOff, lod).rg)/(far);
         //TODO dependency on dimensions of ray bundle
-        color.rgb = textureLod(cubemap, r0 * lookupFac + lookupOff, 0).rgb;
-        //color.rgb = textureLod(minmaxdepthmap, r0 * lookupFac + lookupOff, 0).rrr;
+        float lod = 0;
+        color.rgb = textureLod(cubemap, r0 * lookupFac + lookupOff, lod).rgb;
+        if(i == NUM_SAMPLES_X*NUM_SAMPLES_Y)
+          centerRayPos = r0/abs(r0[faceIdx]);
+        else
+        {
+          lod = length(centerRayPos - r0/abs(r0[faceIdx]))*5;
+          //color.rgb = vec3(lod);
+        }
+        
+        color.rgb = textureLod(cubemap, r0 * lookupFac + lookupOff, lod).rgb;
         float dist = -1;
         
         // if the current position is before the min-plane, choose max step size s.t. we reach the min-plane,
@@ -246,9 +329,12 @@ vec4 traceRays(vec3 positions[NUM_SAMPLES_X*NUM_SAMPLES_Y+1], vec3 directions[NU
         r0 += dist*(1+1e-7) * rd;
     }
     color.rgb *= transmittance[i];
-    ret += color;
+    //color.rgb = vec3(r0);
+    if(i < NUM_SAMPLES_X*NUM_SAMPLES_Y)
+      ret += color;
   }
   return ret;
+  #endif
 }
 
 //copied from image_head.cl
