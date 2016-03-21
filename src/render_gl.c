@@ -1,16 +1,12 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#define GLM_FORCE_RADIANS
-#define GLM_SWIZZLE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <sstream>
 #include <iostream>
+#include <math.h>
 
 #define CHECK_ERROR                                                         \
     {                                                                       \
