@@ -126,6 +126,34 @@ static inline void lens_evaluate_jacobian(const float *in, float *J)
   J[20] = dx40; J[21] = dx41; J[22] = dx42; J[23] = dx43; J[24] = dx44;
 }
 
+static inline float lens_det_sensor_to_outer_pupil(const float *sensor, const float *cpos, const float focus)
+{
+  float J[25];
+  lens_evaluate_jacobian(sensor, J);
+  // only interested in how the direction density at the sensor changes wrt the vertex area on the output
+  float T[25] = {
+    1., 0., focus, 0., 0.,
+    0., 1., 0., focus, 0.,
+    0., 0., 1., 0., 0.,
+    0., 0., 0., 1., 0.,
+    0., 0., 0., 0., 1.};
+  float JT[25] = {0.};
+  for(int i=2;i<4;i++) // only interested in 2x2 subblock.
+    for(int j=0;j<2;j++)
+      for(int k=0;k<5;k++)
+        JT[i+5*j] += J[k + 5*j] * T[i + 5*k];
+  const float det = fabsf(JT[2] * JT[5+3] - JT[3] * JT[5+2]);
+
+  float cp[3] = {cpos[0], cpos[1], cpos[2] + lens_outer_pupil_radius};
+  const float l3 = sqrtf(dotproduct(cp, cp));
+  float n[3] = { cp[0]/l3, cp[1]/l3, cp[2]/l3};
+  // convert from projected solid angle to point on sphere
+  const float deto = 1./n[2];
+  // there are two spatial components which need conversion to dm:
+  const float dm2mm = 100.0f;
+  return (det * deto) / (dm2mm*dm2mm);
+}
+
 static inline void lens_evaluate_aperture_jacobian(const float *in, float *J)
 {
   __attribute__ ((unused)) const float x = in[0], y = in[1], dx = in[2], dy = in[3], lambda = in[4];
