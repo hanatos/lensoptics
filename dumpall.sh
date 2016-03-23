@@ -18,12 +18,12 @@ do
   ./view $i -o
   ./fresnel $i
   ./sample-plot $i
-  rm -f lt-aperture-sampling
-  make lensname=$lens lt-aperture-sampling
-  ./lt-aperture-sampling
+# rm -f lt-aperture-sampling
+# make lensname=$lens lt-aperture-sampling
+# ./lt-aperture-sampling
   gnuplot -e "lens=\"$i\"" fresnel.plt
   gnuplot -e "lens=\"$i\"" sample-plot.plt
-  gnuplot -e "lens=\"$i\"" convergence.plt
+# gnuplot -e "lens=\"$i\"" convergence.plt
   mv screenshot.pdf lenses/${lens}.pdf
   mv fresnel-profile.pdf lenses/${lens}-zzz-fresnel.pdf
   mv sample-plot.pdf lenses/${lens}-zzz-samples.pdf

@@ -146,7 +146,7 @@ void print_lt_sample_aperture(FILE *f, const poly_system_t *system, const poly_s
   fprintf(f, "  scene_z + lens_outer_pupil_curvature_radius\n};\n");
   fprintf(f, "normalise(view);\n");
   fprintf(f, "int error = 0;\n");
-  fprintf(f, "if(view[2] >= lens_field_of_view)\n{\n");
+  fprintf(f, "if(1 || view[2] >= lens_field_of_view)\n{\n");
   fprintf(f, "  const float eps = 1e-8;\n");
   fprintf(f, "  float sqr_err = 1e30, sqr_ap_err = 1e30;\n");
   fprintf(f, "  float prev_sqr_err = 1e32, prev_sqr_ap_err = 1e32;\n");

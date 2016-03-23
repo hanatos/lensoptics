@@ -2,6 +2,68 @@
 
 #include <math.h>
 
+// for some jacobian magic, we need to invert a 4x4 matrix:
+
+// fake 5x5 determinant. assumes the wavelength (5th component) stays constant
+// and just computes the determinant of the 4x4 subblock.
+static inline float lens_det5(const float X[][5])
+{
+  return
+      X[0][3] * X[1][2] * X[2][1] * X[3][0]
+    - X[0][2] * X[1][3] * X[2][1] * X[3][0]
+    - X[0][3] * X[1][1] * X[2][2] * X[3][0]
+    + X[0][1] * X[1][3] * X[2][2] * X[3][0]
+    + X[0][2] * X[1][1] * X[2][3] * X[3][0]
+    - X[0][1] * X[1][2] * X[2][3] * X[3][0]
+    - X[0][3] * X[1][2] * X[2][0] * X[3][1]
+    + X[0][2] * X[1][3] * X[2][0] * X[3][1]
+    + X[0][3] * X[1][0] * X[2][2] * X[3][1]
+    - X[0][0] * X[1][3] * X[2][2] * X[3][1]
+    - X[0][2] * X[1][0] * X[2][3] * X[3][1]
+    + X[0][0] * X[1][2] * X[2][3] * X[3][1]
+    + X[0][3] * X[1][1] * X[2][0] * X[3][2]
+    - X[0][1] * X[1][3] * X[2][0] * X[3][2]
+    - X[0][3] * X[1][0] * X[2][1] * X[3][2]
+    + X[0][0] * X[1][3] * X[2][1] * X[3][2]
+    + X[0][1] * X[1][0] * X[2][3] * X[3][2]
+    - X[0][0] * X[1][1] * X[2][3] * X[3][2]
+    - X[0][2] * X[1][1] * X[2][0] * X[3][3]
+    + X[0][1] * X[1][2] * X[2][0] * X[3][3]
+    + X[0][2] * X[1][0] * X[2][1] * X[3][3]
+    - X[0][0] * X[1][2] * X[2][1] * X[3][3]
+    - X[0][1] * X[1][0] * X[2][2] * X[3][3]
+    + X[0][0] * X[1][1] * X[2][2] * X[3][3];
+}
+
+// fake 5x5 matrix inverse (only inverts the upper left 4x4 sub block).
+// last dimension is wavelength which stays unchanged so we leave that part as is.
+// this is used by the reverse evaluation newton iteration, to make it match
+// the forward evaluation.
+static inline void lens_mat5inv(const float X[][5], float R[][5])
+{
+  const float det = lens_det5(X);
+  R[0][0] = ( X[1][2]*X[2][3]*X[3][1] - X[1][3]*X[2][2]*X[3][1] + X[1][3]*X[2][1]*X[3][2] - X[1][1]*X[2][3]*X[3][2] - X[1][2]*X[2][1]*X[3][3] + X[1][1]*X[2][2]*X[3][3] ) / det;
+  R[1][0] = ( X[1][3]*X[2][2]*X[3][0] - X[1][2]*X[2][3]*X[3][0] - X[1][3]*X[2][0]*X[3][2] + X[1][0]*X[2][3]*X[3][2] + X[1][2]*X[2][0]*X[3][3] - X[1][0]*X[2][2]*X[3][3] ) / det;
+  R[2][0] = ( X[1][1]*X[2][3]*X[3][0] - X[1][3]*X[2][1]*X[3][0] + X[1][3]*X[2][0]*X[3][1] - X[1][0]*X[2][3]*X[3][1] - X[1][1]*X[2][0]*X[3][3] + X[1][0]*X[2][1]*X[3][3] ) / det;
+  R[3][0] = ( X[1][2]*X[2][1]*X[3][0] - X[1][1]*X[2][2]*X[3][0] - X[1][2]*X[2][0]*X[3][1] + X[1][0]*X[2][2]*X[3][1] + X[1][1]*X[2][0]*X[3][2] - X[1][0]*X[2][1]*X[3][2] ) / det;
+
+  R[0][1] = ( X[0][3]*X[2][2]*X[3][1] - X[0][2]*X[2][3]*X[3][1] - X[0][3]*X[2][1]*X[3][2] + X[0][1]*X[2][3]*X[3][2] + X[0][2]*X[2][1]*X[3][3] - X[0][1]*X[2][2]*X[3][3] ) / det;
+  R[1][1] = ( X[0][2]*X[2][3]*X[3][0] - X[0][3]*X[2][2]*X[3][0] + X[0][3]*X[2][0]*X[3][2] - X[0][0]*X[2][3]*X[3][2] - X[0][2]*X[2][0]*X[3][3] + X[0][0]*X[2][2]*X[3][3] ) / det;
+  R[2][1] = ( X[0][3]*X[2][1]*X[3][0] - X[0][1]*X[2][3]*X[3][0] - X[0][3]*X[2][0]*X[3][1] + X[0][0]*X[2][3]*X[3][1] + X[0][1]*X[2][0]*X[3][3] - X[0][0]*X[2][1]*X[3][3] ) / det;
+  R[3][1] = ( X[0][1]*X[2][2]*X[3][0] - X[0][2]*X[2][1]*X[3][0] + X[0][2]*X[2][0]*X[3][1] - X[0][0]*X[2][2]*X[3][1] - X[0][1]*X[2][0]*X[3][2] + X[0][0]*X[2][1]*X[3][2] ) / det;
+
+  R[0][2] = ( X[0][2]*X[1][3]*X[3][1] - X[0][3]*X[1][2]*X[3][1] + X[0][3]*X[1][1]*X[3][2] - X[0][1]*X[1][3]*X[3][2] - X[0][2]*X[1][1]*X[3][3] + X[0][1]*X[1][2]*X[3][3] ) / det;
+  R[1][2] = ( X[0][3]*X[1][2]*X[3][0] - X[0][2]*X[1][3]*X[3][0] - X[0][3]*X[1][0]*X[3][2] + X[0][0]*X[1][3]*X[3][2] + X[0][2]*X[1][0]*X[3][3] - X[0][0]*X[1][2]*X[3][3] ) / det;
+  R[2][2] = ( X[0][1]*X[1][3]*X[3][0] - X[0][3]*X[1][1]*X[3][0] + X[0][3]*X[1][0]*X[3][1] - X[0][0]*X[1][3]*X[3][1] - X[0][1]*X[1][0]*X[3][3] + X[0][0]*X[1][1]*X[3][3] ) / det;
+  R[3][2] = ( X[0][2]*X[1][1]*X[3][0] - X[0][1]*X[1][2]*X[3][0] - X[0][2]*X[1][0]*X[3][1] + X[0][0]*X[1][2]*X[3][1] + X[0][1]*X[1][0]*X[3][2] - X[0][0]*X[1][1]*X[3][2] ) / det;
+
+  R[0][3] = ( X[0][3]*X[1][2]*X[2][1] - X[0][2]*X[1][3]*X[2][1] - X[0][3]*X[1][1]*X[2][2] + X[0][1]*X[1][3]*X[2][2] + X[0][2]*X[1][1]*X[2][3] - X[0][1]*X[1][2]*X[2][3] ) / det;
+  R[1][3] = ( X[0][2]*X[1][3]*X[2][0] - X[0][3]*X[1][2]*X[2][0] + X[0][3]*X[1][0]*X[2][2] - X[0][0]*X[1][3]*X[2][2] - X[0][2]*X[1][0]*X[2][3] + X[0][0]*X[1][2]*X[2][3] ) / det;
+  R[2][3] = ( X[0][3]*X[1][1]*X[2][0] - X[0][1]*X[1][3]*X[2][0] - X[0][3]*X[1][0]*X[2][1] + X[0][0]*X[1][3]*X[2][1] + X[0][1]*X[1][0]*X[2][3] - X[0][0]*X[1][1]*X[2][3] ) / det;
+  R[3][3] = ( X[0][1]*X[1][2]*X[2][0] - X[0][2]*X[1][1]*X[2][0] + X[0][2]*X[1][0]*X[2][1] - X[0][0]*X[1][2]*X[2][1] - X[0][1]*X[1][0]*X[2][2] + X[0][0]*X[1][1]*X[2][2] ) / det;
+}
+
+
 // helper function for dumped polynomials to compute integer powers of x:
 static inline float lens_ipow(const float x, const int exp)
 {
@@ -126,7 +188,7 @@ static inline void lens_evaluate_jacobian(const float *in, float *J)
   J[20] = dx40; J[21] = dx41; J[22] = dx42; J[23] = dx43; J[24] = dx44;
 }
 
-static inline float lens_det_sensor_to_outer_pupil(const float *sensor, const float *cpos, const float focus)
+static inline float lens_det_sensor_to_outer_pupil(const float *sensor, const float *out, const float focus)
 {
   float J[25];
   lens_evaluate_jacobian(sensor, J);
@@ -140,18 +202,16 @@ static inline float lens_det_sensor_to_outer_pupil(const float *sensor, const fl
   float JT[25] = {0.};
   for(int i=2;i<4;i++) // only interested in 2x2 subblock.
     for(int j=0;j<2;j++)
-      for(int k=0;k<5;k++)
+      for(int k=0;k<4;k++)
         JT[i+5*j] += J[k + 5*j] * T[i + 5*k];
-  const float det = fabsf(JT[2] * JT[5+3] - JT[3] * JT[5+2]);
+  const float det = JT[2] * JT[5+3] - JT[3] * JT[5+2];
 
-  float cp[3] = {cpos[0], cpos[1], cpos[2] + lens_outer_pupil_radius};
-  const float l3 = sqrtf(dotproduct(cp, cp));
-  float n[3] = { cp[0]/l3, cp[1]/l3, cp[2]/l3};
-  // convert from projected solid angle to point on sphere
-  const float deto = 1./n[2];
+  // convert from projected disk to point on hemi-sphere
+  const float R = lens_outer_pupil_curvature_radius;
+  const float deto = R/sqrtf(R*R-out[0]*out[0]-out[1]*out[1]);
   // there are two spatial components which need conversion to dm:
   const float dm2mm = 100.0f;
-  return (det * deto) / (dm2mm*dm2mm);
+  return fabsf(det * deto) / (dm2mm*dm2mm);
 }
 
 static inline void lens_evaluate_aperture_jacobian(const float *in, float *J)
@@ -165,13 +225,34 @@ static inline void lens_evaluate_aperture_jacobian(const float *in, float *J)
   J[20] = dx40; J[21] = dx41; J[22] = dx42; J[23] = dx43; J[24] = dx44;
 }
 
-static inline float lens_det_sensor_to_aperture(const float *sensor, const float focus)
+// compute 2x2 determinant of the jacobian mapping position on the aperture to position on the outer pupil.
+static inline float lens_det_aperture_to_outer_pupil(const float *sensor, const float *out)
 {
-  const float dm2mm = 100.0f;
+  // first get full jacobians from sensor to outer pupil and aperture:
+  float Jo[25] = {0.0f}, Ja[25] = {0.0f};
+  lens_evaluate_jacobian(sensor, Jo);
+  lens_evaluate_aperture_jacobian(sensor, Ja);
+  // invert aperture jacobian to map from aperture to sensor:
+  float Ja_inv[25];
+  lens_mat5inv((const float (*)[5])Ja, (float (*)[5])Ja_inv);
+  // multiply to get final mapping:
+  float Ja_o[25] = {0.0f};
+  for(int i=0;i<2;i++) // only interested in spatial/spatial 2x2 subblock.
+    for(int j=0;j<2;j++)
+      for(int k=0;k<4;k++)
+        Ja_o[i+5*j] += Jo[k + 5*j] * Ja_inv[i + 5*k];
+  const float det_ao = Ja_o[0] * Ja_o[5+1] - Ja_o[1] * Ja_o[5+0];
+  const float R = lens_outer_pupil_curvature_radius;
+  const float deto = R/sqrtf(R*R-out[0]*out[0]-out[1]*out[1]);
+  // return determinant:
+  return fabsf(deto * det_ao);
+}
+
+static inline float lens_det_aperture_to_sensor(const float *sensor, const float focus)
+{
   float J[25];
   lens_evaluate_aperture_jacobian(sensor, J);
   // only interested in how the directional density at the sensor changes wrt the vertex area (spatial) at the aperture
-  // const float det = fabsf(J[2] * J[5+3] - J[3] * J[5+2]);
   float T[25] = {
     1., 0., focus, 0., 0.,
     0., 1., 0., focus, 0.,
@@ -181,10 +262,11 @@ static inline float lens_det_sensor_to_aperture(const float *sensor, const float
   float JT[25] = {0.};
   for(int i=2;i<4;i++) // only interested in 2x2 subblock.
     for(int j=0;j<2;j++)
-      for(int k=0;k<5;k++)
+      for(int k=0;k<4;k++)
         JT[i+5*j] += J[k + 5*j] * T[i + 5*k];
   const float det = fabsf(JT[2] * JT[5+3] - JT[3] * JT[5+2]);
   // there are two spatial components which need conversion to dm:
+  const float dm2mm = 100.0f;
   return dm2mm*dm2mm/det;
 }
 
