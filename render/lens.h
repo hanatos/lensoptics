@@ -208,7 +208,7 @@ static inline float lens_det_sensor_to_outer_pupil(const float *sensor, const fl
 
   // convert from projected disk to point on hemi-sphere
   const float R = lens_outer_pupil_curvature_radius;
-  const float deto = R/sqrtf(R*R-out[0]*out[0]-out[1]*out[1]);
+  const float deto = sqrtf(R*R-out[0]*out[0]-out[1]*out[1])/R;
   // there are two spatial components which need conversion to dm:
   const float dm2mm = 100.0f;
   return fabsf(det * deto) / (dm2mm*dm2mm);
