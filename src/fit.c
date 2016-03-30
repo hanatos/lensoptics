@@ -8,6 +8,7 @@
 #include <float.h>
 #include <assert.h>
 # define M_PI   3.14159265358979323846  /* pi */
+#define MATCHING_PURSUIT
 
 static lens_element_t lenses[50];
 static int lenses_cnt = 0;
@@ -103,7 +104,7 @@ int main(int argc, char *arg[])
     poly_system_get_coeffs(&poly_ap, user_degree, 0));
   float *coeff = (float *)malloc(sizeof(float)*coeff_size);
 
-  const int sample_cnt = 1000000;
+  const int sample_cnt = 15000;
   float *sample = (float *)malloc(sample_cnt*sizeof(float)*5);
   float *sample_in = (float *)malloc(sample_cnt*sizeof(float)*5);
   const int oversample = 4; // only do this x coeff count many ray tracing samples
@@ -168,11 +169,11 @@ int main(int argc, char *arg[])
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly.poly + j, max_degree, 0);
       int coeff_cnt = degree_coeff_size;
-      const int degree_num_samples = std::min(valid, oversample*degree_coeff_size);
+      const int degree_num_samples = valid;//std::min(valid, oversample*degree_coeff_size);
 
       // optimize taylor polynomial a bit
       Eigen::MatrixXd A(degree_coeff_size, degree_num_samples);
-      #pragma omp parallel for
+      //#pragma omp parallel for
       for(int y = 0; y < degree_num_samples; y++)
       {
         for(int x = 0; x < degree_coeff_size; x++)
@@ -180,34 +181,93 @@ int main(int argc, char *arg[])
           poly_term_t term = poly.poly[j].term[x];
           term.coeff = 1;
           A(x,y) = poly_term_evaluate(&term, sample_in+5*y);
+          //fprintf(stdout, "%g%c", A(x,y), x<degree_coeff_size-1?',':'\n');
         }
       }
       //cout<<A<<endl;
       Eigen::VectorXd b(degree_num_samples);
       for(int y = 0; y < degree_num_samples; y++)
+      {
         b(y) = sample[j*sample_cnt+y];
+        //fprintf(stdout, "%g\n", sample[j*sample_cnt+y]);
+      }
+      //fflush(stdout);
       //cout<<b<<endl;
-
+#ifdef MATCHING_PURSUIT
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
       Eigen::VectorXd residual = b;
-      Eigen::VectorXd factor(degree_coeff_size);
       Eigen::VectorXd used(degree_coeff_size);
       int permutation[degree_coeff_size];
       for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
-      for(int i = 0; i < degree_coeff_size; i++) used[i] = 0.0;
-      for(int i = 0; i < degree_coeff_size; i++)
-        factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
-
+      used.setZero();
       coeff_cnt = 0;
-      for(int i = 0; i < degree_coeff_size && i < max_coeffs; i++)
+
+      double preverror = 1e30;
+      Eigen::VectorXd prod(degree_coeff_size);
+      prod.setZero();
+      for(int i = 0; coeff_cnt < degree_coeff_size; i++)
       {
         int maxidx = 0;
-        Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
-        prod.maxCoeff(&maxidx);
+        {
+          Eigen::MatrixXd tmp(degree_num_samples, coeff_cnt+1);
+          for(int k = 0; k < coeff_cnt; k++)
+            tmp.col(k) = A.row(permutation[k]).transpose();
+          for(int c = 0; c < degree_coeff_size; c++)
+          {
+            if(used(c) > 0)
+            {
+              prod(c) = 1e30;
+            }
+            else if(prod(c) == 0)
+            {
+              tmp.col(coeff_cnt) = A.row(c).transpose();
+              Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
+              prod(c) = (b-tmp*result).squaredNorm();
+              //fprintf(stderr, "%d %g\n", c, prod(c));
+            }
+          }
+        }
+
+        prod.minCoeff(&maxidx);
         if(used(maxidx) > 0)
           break;
-        permutation[coeff_cnt] = maxidx;
-        coeff_cnt++;
+        used(maxidx) = 1;
+
+        if(coeff_cnt < max_coeffs)
+        {
+          //fprintf(stderr, "best fit: %d\n", maxidx);
+          permutation[coeff_cnt] = maxidx;
+          coeff_cnt++;
+        }
+        else
+        {
+          double minerror = 1e30;
+          int minidx = 0;
+
+          for(int c = 0; c < coeff_cnt; c++)
+          {
+            Eigen::MatrixXd tmp(degree_num_samples, coeff_cnt);
+            for(int k = 0; k < coeff_cnt; k++)
+              tmp.col(k) = A.row(c!=k?permutation[k]:maxidx).transpose();
+            double newerror = (b-tmp*(tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b)).squaredNorm();
+            if(newerror < minerror)
+            {
+              minerror = newerror;
+              minidx = c;
+            }
+          }
+          if(minerror < preverror)
+          {
+            used(permutation[minidx]) = 0;
+            permutation[minidx] = maxidx;
+
+            //reset used for new residual:
+            used.setZero();
+            for(int i = 0; i < coeff_cnt; i++)
+              used(permutation[i]) = 1;
+            prod.setZero();
+          }
+        }
 
         Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
@@ -216,14 +276,18 @@ int main(int argc, char *arg[])
         result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
         //result = tmp.colPivHouseholderQr().solve(b);
         residual = b-tmp*result;
-        used(maxidx) = 1.0;
         if(residual.squaredNorm() < eps[j] * degree_num_samples) break;
+        preverror = residual.squaredNorm();
       }
 
       Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
       for(int k = 0; k < coeff_cnt; k++)
         coeffs(permutation[k]) = result(k);
       result = coeffs;
+#else
+      Eigen::VectorXd result = (A*A.transpose()).ldlt().solve(A*b);
+      Eigen::VectorXd residual = b-A.transpose()*result;
+#endif
       float error = residual.squaredNorm() / degree_num_samples;
 
       sumCoeffs += coeff_cnt;
@@ -277,11 +341,11 @@ int main(int argc, char *arg[])
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly_ap.poly + j, max_degree, 0);
       int coeff_cnt = degree_coeff_size;
-      const int degree_num_samples = std::min(valid, oversample*degree_coeff_size);
+      const int degree_num_samples = valid;//std::min(valid, oversample*degree_coeff_size);
 
       // optimize taylor polynomial a bit
       Eigen::MatrixXd A(degree_coeff_size, degree_num_samples);
-      #pragma omp parallel for
+      //#pragma omp parallel for
       for(int y = 0; y < degree_num_samples; y++)
       {
         for(int x = 0; x < degree_coeff_size; x++)
@@ -289,33 +353,92 @@ int main(int argc, char *arg[])
           poly_term_t term = poly_ap.poly[j].term[x];
           term.coeff = 1;
           A(x,y) = poly_term_evaluate(&term, sample_in+5*y);
+          //fprintf(stdout, "%g%c", A(x,y), x<degree_coeff_size-1?',':'\n');
         }
       }
       //cout<<A<<endl;
       Eigen::VectorXd b(degree_num_samples);
       for(int y = 0; y < degree_num_samples; y++)
+      {
         b(y) = sample[j*sample_cnt+y];
+        //fprintf(stdout, "%g\n", sample[j*sample_cnt+y]);
+      }
       //cout<<b<<endl;
+#ifdef MATCHING_PURSUIT
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
       Eigen::VectorXd residual = b;
-      Eigen::VectorXd factor(degree_coeff_size);
       Eigen::VectorXd used(degree_coeff_size);
       int permutation[degree_coeff_size];
       for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
-      for(int i = 0; i < degree_coeff_size; i++) used[i] = 0.0;
-      for(int i = 0; i < degree_coeff_size; i++)
-        factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly_ap.poly[j].term+i)+1.0));
-
+      used.setZero();
       coeff_cnt = 0;
-      for(int i = 0; i < degree_coeff_size && i < max_coeffs; i++)
+
+      double preverror = 1e30;
+      Eigen::VectorXd prod(degree_coeff_size);
+      prod.setZero();
+      for(int i = 0; coeff_cnt < degree_coeff_size; i++)
       {
         int maxidx = 0;
-        Eigen::VectorXd prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
-        prod.maxCoeff(&maxidx);
+        {
+          Eigen::MatrixXd tmp(degree_num_samples, coeff_cnt+1);
+          for(int k = 0; k < coeff_cnt; k++)
+            tmp.col(k) = A.row(permutation[k]).transpose();
+          for(int c = 0; c < degree_coeff_size; c++)
+          {
+            if(used(c) > 0)
+            {
+              prod(c) = 1e30;
+            }
+            else if(prod(c) == 0)
+            {
+              tmp.col(coeff_cnt) = A.row(c).transpose();
+              Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
+              prod(c) = (b-tmp*result).squaredNorm();
+              //fprintf(stderr, "%d %g\n", c, prod(c));
+            }
+          }
+        }
+
+        prod.minCoeff(&maxidx);
         if(used(maxidx) > 0)
           break;
-        permutation[coeff_cnt] = maxidx;
-        coeff_cnt++;
+        used(maxidx) = 1;
+
+        if(coeff_cnt < max_coeffs)
+        {
+          //fprintf(stderr, "best fit: %d\n", maxidx);
+          permutation[coeff_cnt] = maxidx;
+          coeff_cnt++;
+        }
+        else
+        {
+          double minerror = 1e30;
+          int minidx = 0;
+
+          for(int c = 0; c < coeff_cnt; c++)
+          {
+            Eigen::MatrixXd tmp(degree_num_samples, coeff_cnt);
+            for(int k = 0; k < coeff_cnt; k++)
+              tmp.col(k) = A.row(c!=k?permutation[k]:maxidx).transpose();
+            double newerror = (b-tmp*(tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b)).squaredNorm();
+            if(newerror < minerror)
+            {
+              minerror = newerror;
+              minidx = c;
+            }
+          }
+          if(minerror < preverror)
+          {
+            used(permutation[minidx]) = 0;
+            permutation[minidx] = maxidx;
+
+            //reset used for new residual:
+            used.setZero();
+            for(int i = 0; i < coeff_cnt; i++)
+              used(permutation[i]) = 1;
+            prod.setZero();
+          }
+        }
 
         Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
@@ -324,14 +447,18 @@ int main(int argc, char *arg[])
         result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
         //result = tmp.colPivHouseholderQr().solve(b);
         residual = b-tmp*result;
-        used(maxidx) = 1.0;
         if(residual.squaredNorm() < eps[j] * degree_num_samples) break;
+        preverror = residual.squaredNorm();
       }
 
       Eigen::VectorXd coeffs = Eigen::ArrayXd::Zero(degree_coeff_size);
       for(int k = 0; k < coeff_cnt; k++)
         coeffs(permutation[k]) = result(k);
       result = coeffs;
+#else
+      Eigen::VectorXd result = (A*A.transpose()).ldlt().solve(A*b);
+      Eigen::VectorXd residual = b-A.transpose()*result;
+#endif
       float error = residual.squaredNorm() / degree_num_samples;
 
       sumCoeffs += coeff_cnt;
