@@ -9,6 +9,7 @@
 #include <assert.h>
 # define M_PI   3.14159265358979323846  /* pi */
 #define MATCHING_PURSUIT
+//#define OMP_ALLOW_REPLACING
 
 static lens_element_t lenses[50];
 static int lenses_cnt = 0;
@@ -196,6 +197,11 @@ int main(int argc, char *arg[])
 #ifdef MATCHING_PURSUIT
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
       Eigen::VectorXd residual = b;
+#ifndef OMP_ALLOW_REPLACING
+      Eigen::VectorXd factor(degree_coeff_size);
+      for(int i = 0; i < degree_coeff_size; i++)
+        factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
+#endif
       Eigen::VectorXd used(degree_coeff_size);
       int permutation[degree_coeff_size];
       for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
@@ -208,6 +214,12 @@ int main(int argc, char *arg[])
       for(int i = 0; coeff_cnt < degree_coeff_size; i++)
       {
         int maxidx = 0;
+#ifndef OMP_ALLOW_REPLACING
+        if(coeff_cnt >= max_coeffs)
+          break;
+        prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
+        prod.maxCoeff(&maxidx);
+#else
         {
           Eigen::MatrixXd tmp(degree_num_samples, coeff_cnt+1);
           for(int k = 0; k < coeff_cnt; k++)
@@ -227,8 +239,8 @@ int main(int argc, char *arg[])
             }
           }
         }
-
         prod.minCoeff(&maxidx);
+#endif
         if(used(maxidx) > 0)
           break;
         used(maxidx) = 1;
@@ -367,6 +379,11 @@ int main(int argc, char *arg[])
 #ifdef MATCHING_PURSUIT
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
       Eigen::VectorXd residual = b;
+#ifndef OMP_ALLOW_REPLACING
+      Eigen::VectorXd factor(degree_coeff_size);
+      for(int i = 0; i < degree_coeff_size; i++)
+        factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
+#endif
       Eigen::VectorXd used(degree_coeff_size);
       int permutation[degree_coeff_size];
       for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
@@ -379,6 +396,12 @@ int main(int argc, char *arg[])
       for(int i = 0; coeff_cnt < degree_coeff_size; i++)
       {
         int maxidx = 0;
+#ifndef OMP_ALLOW_REPLACING
+        if(coeff_cnt >= max_coeffs)
+          break;
+        prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
+        prod.maxCoeff(&maxidx);
+#else
         {
           Eigen::MatrixXd tmp(degree_num_samples, coeff_cnt+1);
           for(int k = 0; k < coeff_cnt; k++)
@@ -398,8 +421,8 @@ int main(int argc, char *arg[])
             }
           }
         }
-
         prod.minCoeff(&maxidx);
+#endif
         if(used(maxidx) > 0)
           break;
         used(maxidx) = 1;
