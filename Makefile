@@ -45,7 +45,7 @@ simplify: Makefile src/simplify.c ${HEADERS}
 gencode: Makefile src/gencode.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/gencode.c -o gencode ${LDFLAGS}
 
-lt-aperture-sampling: Makefile src/sample_ap_lt.c ${HEADERS}
+lt-aperture-sampling: Makefile src/sample_ap_lt.c init.h lt_sample_aperture.h ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} -Irender/${lensname} src/sample_ap_lt.c -o lt-aperture-sampling ${LDFLAGS}
 	
 glRender: Makefile src/render_gl.c

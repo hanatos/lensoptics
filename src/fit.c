@@ -10,6 +10,10 @@
 # define M_PI   3.14159265358979323846  /* pi */
 #define MATCHING_PURSUIT
 //#define OMP_ALLOW_REPLACING
+//#define OMP_CALCULATE_EXACT_ERROR
+//#define OMP_DEBUG_OUTPUT
+//#define ONLY_OUTER_POLY
+//#define WITHOUT_TRANSMITTANCE
 
 static lens_element_t lenses[50];
 static int lenses_cnt = 0;
@@ -147,7 +151,7 @@ int main(int argc, char *arg[])
       #endif
     }
     // only need to be able to determine the dimensionality of our problem, not much more:
-    if(valid >= oversample*coeff_size) break;
+    //if(valid >= oversample*coeff_size) break;
     if(valid >= sample_cnt) break;
   }
   fprintf(stderr, "[ sensor->outer pp ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
@@ -165,7 +169,11 @@ int main(int argc, char *arg[])
     int sumCoeffs = 0;
     int maxSumCoeffs = 0;
     float errorSum = 0.0f;
+    #ifdef WITHOUT_TRANSMITTANCE
+    for(int j = 0; j < 4; j++)
+    #else
     for(int j = 0; j < 5; j++)
+    #endif
     {
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly.poly + j, max_degree, 0);
@@ -197,7 +205,7 @@ int main(int argc, char *arg[])
 #ifdef MATCHING_PURSUIT
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
       Eigen::VectorXd residual = b;
-#ifndef OMP_ALLOW_REPLACING
+#ifndef OMP_CALCULATE_EXACT_ERROR
       Eigen::VectorXd factor(degree_coeff_size);
       for(int i = 0; i < degree_coeff_size; i++)
         factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
@@ -217,6 +225,8 @@ int main(int argc, char *arg[])
 #ifndef OMP_ALLOW_REPLACING
         if(coeff_cnt >= max_coeffs)
           break;
+#endif
+#ifndef OMP_CALCULATE_EXACT_ERROR
         prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
         prod.maxCoeff(&maxidx);
 #else
@@ -272,13 +282,20 @@ int main(int argc, char *arg[])
           {
             used(permutation[minidx]) = 0;
             permutation[minidx] = maxidx;
-
+            #ifdef OMP_DEBUG_OUTPUT
+            fprintf(stderr, "[%d] %g\n", i, minerror);
+            #endif
+            i=0;
             //reset used for new residual:
             used.setZero();
             for(int i = 0; i < coeff_cnt; i++)
               used(permutation[i]) = 1;
             prod.setZero();
           }
+          #ifdef OMP_DEBUG_OUTPUT
+          else
+            fprintf(stderr, " %d ", i);
+          #endif
         }
 
         Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
@@ -348,7 +365,15 @@ int main(int argc, char *arg[])
     int sumCoeffs = 0;
     int maxSumCoeffs = 0;
     float errorSum = 0.0f;
+    #ifdef ONLY_OUTER_POLY
+    for(int j = 0; j < 0; j++)
+    #else
+    #ifdef WITHOUT_TRANSMITTANCE
+    for(int j = 0; j < 4; j++)
+    #else
     for(int j = 0; j < 5; j++)
+    #endif
+    #endif
     {
       //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly_ap.poly + j, max_degree, 0);
@@ -379,7 +404,7 @@ int main(int argc, char *arg[])
 #ifdef MATCHING_PURSUIT
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
       Eigen::VectorXd residual = b;
-#ifndef OMP_ALLOW_REPLACING
+#ifndef OMP_CALCULATE_EXACT_ERROR
       Eigen::VectorXd factor(degree_coeff_size);
       for(int i = 0; i < degree_coeff_size; i++)
         factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
@@ -399,6 +424,8 @@ int main(int argc, char *arg[])
 #ifndef OMP_ALLOW_REPLACING
         if(coeff_cnt >= max_coeffs)
           break;
+#endif
+#ifndef OMP_CALCULATE_EXACT_ERROR
         prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
         prod.maxCoeff(&maxidx);
 #else
@@ -454,13 +481,20 @@ int main(int argc, char *arg[])
           {
             used(permutation[minidx]) = 0;
             permutation[minidx] = maxidx;
-
+            #ifdef OMP_DEBUG_OUTPUT
+            fprintf(stderr, "[%d] %g\n", i, minerror);
+            #endif
+            i=0;
             //reset used for new residual:
             used.setZero();
             for(int i = 0; i < coeff_cnt; i++)
               used(permutation[i]) = 1;
             prod.setZero();
           }
+          #ifdef OMP_DEBUG_OUTPUT
+          else
+            fprintf(stderr, " %d ", i);
+          #endif
         }
 
         Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
