@@ -27,7 +27,7 @@ int main(int argc, char *arg[])
   //XXX better find a way to set color-range in gnuplot than to add two points
   fprintf(f, "%g, %g, %g, 0, 0, 1\n", 0.f, 0.f, 1.f);
   fprintf(f, "%g, %g, %g, 0, 0, 0\n", 0.f, 0.f, 0.f);
-#define profile_cnt 64
+#define profile_cnt 32
   float profile_valr[profile_cnt] = {0.0f};
   int   profile_numr[profile_cnt] = {0};
   float profile_valp[profile_cnt] = {0.0f};
@@ -52,14 +52,14 @@ int main(int argc, char *arg[])
       float intensity = out[4];
       fprintf(f, "%g, %g, %g, %g, %g, %g\n", out[0], out[1], intensity, poly_out[0], poly_out[1], poly_out[4]);
       const float rr = sqrtf(out[0]*out[0] + out[1]*out[1]);
-      const float rp = sqrtf(poly_out[0]*poly_out[0] + poly_out[1]*poly_out[1]);
-      // TODO: normalise to outer pupil radius
+      // const float rp = sqrtf(poly_out[0]*poly_out[0] + poly_out[1]*poly_out[1]);
+      // normalise to outer pupil radius
       int binr = profile_cnt * rr/lenses[0].housing_radius;
-      int binp = profile_cnt * rp/lenses[0].housing_radius;
+      // int binp = profile_cnt * rp/lenses[0].housing_radius;
       profile_valr[binr] += intensity;
       profile_numr[binr] ++;
-      profile_valp[binp] += poly_out[4];
-      profile_nump[binp] ++;
+      profile_valp[binr] += poly_out[4];
+      profile_nump[binr] ++;
     }
     else
       --i;

@@ -11,6 +11,7 @@ set key bottom right
 set terminal pdf size 11.1,11.1 font ",28"
 # set title 'radial transmittance profile $lens'
 set title lens
+set xrange [1:35]
 set yrange [0:0.5]
 set autoscale ymax
 set output 'fresnel-profile.pdf'
