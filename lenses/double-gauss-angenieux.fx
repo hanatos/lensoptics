@@ -1,8 +1,9 @@
-// ANGENIEUX; US PAT 2,701,982; F/1.1; EFL=100mm
+# ANGENIEUX; US PAT 2,701,982; F/1.1; EFL=100mm
 #EFL		100		// effective focal length
 #FOV		18.15	// diagonal FOV
-
-// radius	thickness(/:var)	matl		index	vno		sa		ry(opt)
+# scaling it by .5 to give a 50mm with nice vignetting/swirley bokeh
+#!scale .5
+# radius	thickness(/:var)	matl		index	vno		sa		ry(opt)
 164.12		10.99				SF5			1.673	32.2	54
 559.28		0.23				air							54
 100.12		11.45				BAF10		1.67	47.1    51
