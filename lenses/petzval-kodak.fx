@@ -1,5 +1,5 @@
 # petzval-type photographic objective US2500046A (1948)
-#!scale .75
+#!scale .5
  70.97  15.0 abbe 1.523 58.6  23
 -56.79   4.5 abbe 1.617 38.5  23
 100000.0 24.0 air             23
