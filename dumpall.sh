@@ -13,7 +13,7 @@ do
   lens1=${i#*/}
   lens=${lens1%.*}
   echo '[' $lens ']'
-  ./fit $i $degree $degree $degree $maxcoeff
+  ./fit $i $degree $maxcoeff
   ./gencode $i
   ./view $i -o
   ./fresnel $i
