@@ -51,7 +51,6 @@ real poly_pow(const real x, const int32_t exp)
 // evaluate the term at point x.
 real poly_term_evaluate(const poly_term_t *t, const float *x)
 {
-  // if(t->coeff == 0.0f) return 0.0f;
   if(fabsf(t->coeff) < poly_coeff_eps) return 0.0f;
   real out = t->coeff;
   for(int k=0;k<poly_num_vars;k++)
@@ -257,27 +256,6 @@ int poly_term_get_degree(poly_term_t *p)
     int cnt = 0;
     for(int j=0;j<poly_num_vars;j++) cnt += p->exp[j];
     return cnt;
-}
-
-void poly_system_simplify(poly_system_t *s)
-{
-  for(int j=0;j<poly_num_vars;j++)
-  {
-    for(int t=0;t<s->poly[j].num_terms;t++)
-    {
-      if(fabsf(s->poly[j].term[t].coeff) < poly_coeff_eps)
-      {
-        if(t == s->poly[j].num_terms-1)
-          s->poly[j].num_terms--;
-        else
-        {
-          memmove(s->poly[j].term+t, s->poly[j].term+t+1, (s->poly[j].num_terms-t-1)*sizeof(poly_term_t));
-          t--;
-          s->poly[j].num_terms--;
-        }
-      }
-    }
-  }
 }
 
 int _compare(const void *aa, const void *bb)

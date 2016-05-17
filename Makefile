@@ -16,7 +16,7 @@ src/spectrum.h
 
 .PHONY=all clean
 
-all: view fit gencode fresnel simplify genpoly printpoly sample-plot
+all: view fit gencode fresnel genpoly printpoly sample-plot
 
 view: Makefile src/view.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/view.c $(shell pkg-config --cflags --libs gtk+-2.0) ${LDFLAGS} -o view ${LDFLAGS}
@@ -39,9 +39,6 @@ parsepoly: Makefile src/parsepoly.c ${HEADERS}
 printpoly: Makefile src/printpoly.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/printpoly.c -o printpoly ${LDFLAGS}
 
-simplify: Makefile src/simplify.c ${HEADERS}
-	${CC} ${OPTFLAGS} ${CFLAGS} src/simplify.c -o simplify ${LDFLAGS}
-
 gencode: Makefile src/gencode.c ${HEADERS}
 	${CC} ${OPTFLAGS} ${CFLAGS} src/gencode.c -o gencode ${LDFLAGS}
 
@@ -52,4 +49,4 @@ glRender: Makefile src/render_gl.c
 	${CXX} ${OPTFLAGS} ${CXXFLAGS} src/render_gl.c ${LDFLAGS} -o glRender -lGLEW -lGL -lGLU -lglfw
 
 clean:
-	rm -f view fit gencode fresnel fresnel.dat simplify genpoly printpoly sample-plot sample-plot.dat lt_convergence.dat lt_convergence_profile.dat lt-aperture-sampling
+	rm -f view fit gencode fresnel fresnel.dat genpoly printpoly sample-plot sample-plot.dat lt_convergence.dat lt_convergence_profile.dat lt-aperture-sampling

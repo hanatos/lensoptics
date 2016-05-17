@@ -2,68 +2,6 @@
 
 #include <math.h>
 
-// for some jacobian magic, we need to invert a 4x4 matrix:
-
-// fake 5x5 determinant. assumes the wavelength (5th component) stays constant
-// and just computes the determinant of the 4x4 subblock.
-static inline float lens_det5(const float X[][5])
-{
-  return
-      X[0][3] * X[1][2] * X[2][1] * X[3][0]
-    - X[0][2] * X[1][3] * X[2][1] * X[3][0]
-    - X[0][3] * X[1][1] * X[2][2] * X[3][0]
-    + X[0][1] * X[1][3] * X[2][2] * X[3][0]
-    + X[0][2] * X[1][1] * X[2][3] * X[3][0]
-    - X[0][1] * X[1][2] * X[2][3] * X[3][0]
-    - X[0][3] * X[1][2] * X[2][0] * X[3][1]
-    + X[0][2] * X[1][3] * X[2][0] * X[3][1]
-    + X[0][3] * X[1][0] * X[2][2] * X[3][1]
-    - X[0][0] * X[1][3] * X[2][2] * X[3][1]
-    - X[0][2] * X[1][0] * X[2][3] * X[3][1]
-    + X[0][0] * X[1][2] * X[2][3] * X[3][1]
-    + X[0][3] * X[1][1] * X[2][0] * X[3][2]
-    - X[0][1] * X[1][3] * X[2][0] * X[3][2]
-    - X[0][3] * X[1][0] * X[2][1] * X[3][2]
-    + X[0][0] * X[1][3] * X[2][1] * X[3][2]
-    + X[0][1] * X[1][0] * X[2][3] * X[3][2]
-    - X[0][0] * X[1][1] * X[2][3] * X[3][2]
-    - X[0][2] * X[1][1] * X[2][0] * X[3][3]
-    + X[0][1] * X[1][2] * X[2][0] * X[3][3]
-    + X[0][2] * X[1][0] * X[2][1] * X[3][3]
-    - X[0][0] * X[1][2] * X[2][1] * X[3][3]
-    - X[0][1] * X[1][0] * X[2][2] * X[3][3]
-    + X[0][0] * X[1][1] * X[2][2] * X[3][3];
-}
-
-// fake 5x5 matrix inverse (only inverts the upper left 4x4 sub block).
-// last dimension is wavelength which stays unchanged so we leave that part as is.
-// this is used by the reverse evaluation newton iteration, to make it match
-// the forward evaluation.
-static inline void lens_mat5inv(const float X[][5], float R[][5])
-{
-  const float det = lens_det5(X);
-  R[0][0] = ( X[1][2]*X[2][3]*X[3][1] - X[1][3]*X[2][2]*X[3][1] + X[1][3]*X[2][1]*X[3][2] - X[1][1]*X[2][3]*X[3][2] - X[1][2]*X[2][1]*X[3][3] + X[1][1]*X[2][2]*X[3][3] ) / det;
-  R[1][0] = ( X[1][3]*X[2][2]*X[3][0] - X[1][2]*X[2][3]*X[3][0] - X[1][3]*X[2][0]*X[3][2] + X[1][0]*X[2][3]*X[3][2] + X[1][2]*X[2][0]*X[3][3] - X[1][0]*X[2][2]*X[3][3] ) / det;
-  R[2][0] = ( X[1][1]*X[2][3]*X[3][0] - X[1][3]*X[2][1]*X[3][0] + X[1][3]*X[2][0]*X[3][1] - X[1][0]*X[2][3]*X[3][1] - X[1][1]*X[2][0]*X[3][3] + X[1][0]*X[2][1]*X[3][3] ) / det;
-  R[3][0] = ( X[1][2]*X[2][1]*X[3][0] - X[1][1]*X[2][2]*X[3][0] - X[1][2]*X[2][0]*X[3][1] + X[1][0]*X[2][2]*X[3][1] + X[1][1]*X[2][0]*X[3][2] - X[1][0]*X[2][1]*X[3][2] ) / det;
-
-  R[0][1] = ( X[0][3]*X[2][2]*X[3][1] - X[0][2]*X[2][3]*X[3][1] - X[0][3]*X[2][1]*X[3][2] + X[0][1]*X[2][3]*X[3][2] + X[0][2]*X[2][1]*X[3][3] - X[0][1]*X[2][2]*X[3][3] ) / det;
-  R[1][1] = ( X[0][2]*X[2][3]*X[3][0] - X[0][3]*X[2][2]*X[3][0] + X[0][3]*X[2][0]*X[3][2] - X[0][0]*X[2][3]*X[3][2] - X[0][2]*X[2][0]*X[3][3] + X[0][0]*X[2][2]*X[3][3] ) / det;
-  R[2][1] = ( X[0][3]*X[2][1]*X[3][0] - X[0][1]*X[2][3]*X[3][0] - X[0][3]*X[2][0]*X[3][1] + X[0][0]*X[2][3]*X[3][1] + X[0][1]*X[2][0]*X[3][3] - X[0][0]*X[2][1]*X[3][3] ) / det;
-  R[3][1] = ( X[0][1]*X[2][2]*X[3][0] - X[0][2]*X[2][1]*X[3][0] + X[0][2]*X[2][0]*X[3][1] - X[0][0]*X[2][2]*X[3][1] - X[0][1]*X[2][0]*X[3][2] + X[0][0]*X[2][1]*X[3][2] ) / det;
-
-  R[0][2] = ( X[0][2]*X[1][3]*X[3][1] - X[0][3]*X[1][2]*X[3][1] + X[0][3]*X[1][1]*X[3][2] - X[0][1]*X[1][3]*X[3][2] - X[0][2]*X[1][1]*X[3][3] + X[0][1]*X[1][2]*X[3][3] ) / det;
-  R[1][2] = ( X[0][3]*X[1][2]*X[3][0] - X[0][2]*X[1][3]*X[3][0] - X[0][3]*X[1][0]*X[3][2] + X[0][0]*X[1][3]*X[3][2] + X[0][2]*X[1][0]*X[3][3] - X[0][0]*X[1][2]*X[3][3] ) / det;
-  R[2][2] = ( X[0][1]*X[1][3]*X[3][0] - X[0][3]*X[1][1]*X[3][0] + X[0][3]*X[1][0]*X[3][1] - X[0][0]*X[1][3]*X[3][1] - X[0][1]*X[1][0]*X[3][3] + X[0][0]*X[1][1]*X[3][3] ) / det;
-  R[3][2] = ( X[0][2]*X[1][1]*X[3][0] - X[0][1]*X[1][2]*X[3][0] - X[0][2]*X[1][0]*X[3][1] + X[0][0]*X[1][2]*X[3][1] + X[0][1]*X[1][0]*X[3][2] - X[0][0]*X[1][1]*X[3][2] ) / det;
-
-  R[0][3] = ( X[0][3]*X[1][2]*X[2][1] - X[0][2]*X[1][3]*X[2][1] - X[0][3]*X[1][1]*X[2][2] + X[0][1]*X[1][3]*X[2][2] + X[0][2]*X[1][1]*X[2][3] - X[0][1]*X[1][2]*X[2][3] ) / det;
-  R[1][3] = ( X[0][2]*X[1][3]*X[2][0] - X[0][3]*X[1][2]*X[2][0] + X[0][3]*X[1][0]*X[2][2] - X[0][0]*X[1][3]*X[2][2] - X[0][2]*X[1][0]*X[2][3] + X[0][0]*X[1][2]*X[2][3] ) / det;
-  R[2][3] = ( X[0][3]*X[1][1]*X[2][0] - X[0][1]*X[1][3]*X[2][0] - X[0][3]*X[1][0]*X[2][1] + X[0][0]*X[1][3]*X[2][1] + X[0][1]*X[1][0]*X[2][3] - X[0][0]*X[1][1]*X[2][3] ) / det;
-  R[3][3] = ( X[0][1]*X[1][2]*X[2][0] - X[0][2]*X[1][1]*X[2][0] + X[0][2]*X[1][0]*X[2][1] - X[0][0]*X[1][2]*X[2][1] - X[0][1]*X[1][0]*X[2][2] + X[0][0]*X[1][1]*X[2][2] ) / det;
-}
-
-
 // helper function for dumped polynomials to compute integer powers of x:
 static inline float lens_ipow(const float x, const int exp)
 {
@@ -223,29 +161,6 @@ static inline void lens_evaluate_aperture_jacobian(const float *in, float *J)
   J[10] = dx20; J[11] = dx21; J[12] = dx22; J[13] = dx23; J[14] = dx24;
   J[15] = dx30; J[16] = dx31; J[17] = dx32; J[18] = dx33; J[19] = dx34;
   J[20] = dx40; J[21] = dx41; J[22] = dx42; J[23] = dx43; J[24] = dx44;
-}
-
-// compute 2x2 determinant of the jacobian mapping position on the aperture to position on the outer pupil.
-static inline float lens_det_aperture_to_outer_pupil(const float *sensor, const float *out)
-{
-  // first get full jacobians from sensor to outer pupil and aperture:
-  float Jo[25] = {0.0f}, Ja[25] = {0.0f};
-  lens_evaluate_jacobian(sensor, Jo);
-  lens_evaluate_aperture_jacobian(sensor, Ja);
-  // invert aperture jacobian to map from aperture to sensor:
-  float Ja_inv[25];
-  lens_mat5inv((const float (*)[5])Ja, (float (*)[5])Ja_inv);
-  // multiply to get final mapping:
-  float Ja_o[25] = {0.0f};
-  for(int i=0;i<2;i++) // only interested in spatial/spatial 2x2 subblock.
-    for(int j=0;j<2;j++)
-      for(int k=0;k<4;k++)
-        Ja_o[i+5*j] += Jo[k + 5*j] * Ja_inv[i + 5*k];
-  const float det_ao = Ja_o[0] * Ja_o[5+1] - Ja_o[1] * Ja_o[5+0];
-  const float R = lens_outer_pupil_curvature_radius;
-  const float deto = R/sqrtf(R*R-out[0]*out[0]-out[1]*out[1]);
-  // return determinant:
-  return fabsf(deto * det_ao);
 }
 
 static inline float lens_det_aperture_to_sensor(const float *sensor, const float focus)

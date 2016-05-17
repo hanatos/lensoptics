@@ -64,13 +64,11 @@ int main(int argc, char *arg[])
       continue;
     }
     term_ptr[term_ctr].coeff = strtof(in, &in);
-    //assert(in[0] == ',');
     in++;
     for(int i = 0; i < poly_num_vars; i++)
     {
       while(in[0] == '\t' || in[0] == ' ') in++;
       term_ptr[term_ctr].exp[i] = strtol(in, &in, 10);
-      //assert(in[0] == ',' || in[0] == '\n' && i == poly_num_vars-1);
       in++;
     }
     fprintf(stderr, "x%d = %f*x^%d*y^%d*dx^%d*dy^%d*lambda^%d\n", var_ctr, term_ptr[term_ctr].coeff, term_ptr[term_ctr].exp[0], term_ptr[term_ctr].exp[1], term_ptr[term_ctr].exp[2], term_ptr[term_ctr].exp[3], term_ptr[term_ctr].exp[4]);
@@ -86,13 +84,4 @@ int main(int argc, char *arg[])
   }
   poly_system_sort(&s);
   poly_system_write(&s, arg[2]);
-  #if 0
-  // Debug
-  for(int i = 0; i < poly_num_vars; i++)
-  {
-    fprintf(stdout, "x%d = ", i);
-    poly_print(s.poly+i, 0, stdout);
-    fprintf(stdout, "\n\n");
-  }
-  #endif
 }

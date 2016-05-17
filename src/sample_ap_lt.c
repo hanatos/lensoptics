@@ -34,10 +34,7 @@ static inline float MAX(float a, float b)
 void log_iteration(const float *appos, const float aperr, const float *outpos, const float *outdir, const float sen_x, const float sen_dx, const float outerr)
 {
   if(logfile)
-  {
-    //fprintf(logfile, "%d %g %g %g %g %g %g\n", iteration_cnt, aperr, outerr, iteration_cnt*1.0f, outpos[0], outdir[2], outdir[0]);
     fprintf(logfile, "%d %g %g %g %g %g %g %g %g %g\n", iteration_cnt, aperr, outerr, iteration_cnt*1.0f, sen_x, 1.0f, sen_dx, outpos[0], outdir[2], outdir[0]);
-  }
   iteration_cnt++;
   last_err = outerr;
   last_ap_err = aperr;

@@ -140,8 +140,6 @@ int lens_configuration(lens_element_t *l, const char *filename, int max)
 
     l[cnt++] = lens;
 
-    // fprintf(stderr, "lens[%d] %g %g %s %g %g %g\n", cnt-1, lens.lens_radius, lens.thickness_short, lens.material, lens.ior, lens.vno, lens.housing_radius);
- 
     if(cnt >= max) break;
   }
   fclose(f);

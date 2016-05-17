@@ -355,37 +355,19 @@ char* readMat(int *width, int *height, string path)
 {
   int filesize = 0;
   char *data = readFile(path, &filesize);
-  /*
-  stringstream ss(data);
-
-  int w, h;
-  ss >> w;
-  ss >> h;
-
-  int datapos = ss.tellg();
-  */
   //8 Byte header (int width, int height)
   int w, h, datapos;
   w = *(int*)data;
   h = *(int*)(data+4);
   datapos = 8;
   fprintf(stderr, "Mat-file: %s (%d x %d)\n", path.c_str(), w, h);
-  #if 0
-  char *ret = new char[filesize-datapos];
-  //swap rows
-  for(int i = 0; i < h; i++)
-    memcpy(ret+i*w*sizeof(float), data + datapos+(h-i-1)*w*sizeof(float), w*sizeof(float));
-  //memcpy(ret, data + datapos, filesize-datapos);
-  #else
-  
+
   float *dat = new float[2*(filesize-datapos)/sizeof(float)];
-  //swap rows and duplicate data
+  //swap rows and duplicate data for min-max mipmap
   for(int i = h-1; i >= 0; i--)
-  for(int j = 0; j < w; j++)
-    //memcpy(ret+i*w*sizeof(float), data + datapos+(h-i-1)*w*sizeof(float), w*sizeof(float));
-    dat[2*((h-i-1)*w+j)] = dat[2*((h-i-1)*w+j)+1] = *(float*)(data+datapos+(i*w+j)*sizeof(float));
+    for(int j = 0; j < w; j++)
+      dat[2*((h-i-1)*w+j)] = dat[2*((h-i-1)*w+j)+1] = *(float*)(data+datapos+(i*w+j)*sizeof(float));
   char *ret = (char*)dat;
-  #endif
   delete [] data;
 
   if(width)
@@ -398,7 +380,6 @@ char* readMat(int *width, int *height, string path)
 
 char* readPpm(int *width, int *height, int *maxVal, string path)
 {
-  //char *readFile(string path, int *fsize)
   int filesize = 0;
   char *data = readFile(path, &filesize);
   stringstream ss(data);
@@ -432,7 +413,6 @@ char* readPpm(int *width, int *height, int *maxVal, string path)
   //swap rows
   for(int i = h-1; i >= 0; i--)
     memcpy(ret+i*w*3, data + datapos+(h-i-1)*w*3, w*3);
-  //memcpy(ret, data + datapos, filesize-datapos);
   delete [] data;
 
   if(width)
@@ -627,7 +607,6 @@ int main(int argc, char **argv)
     framectr++;
     glfwSwapBuffers(window);
     glfwPollEvents();
-    //glfwWaitEvents();
     float time = glfwGetTime() - begin;
     if(time > 10)
     {

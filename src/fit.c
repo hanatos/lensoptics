@@ -7,10 +7,13 @@
 #include <math.h>
 #include <float.h>
 #include <assert.h>
-# define M_PI   3.14159265358979323846  /* pi */
+
+#define M_PI 3.14159265358979323846  /* pi */
+
 #define MATCHING_PURSUIT
-//#define OMP_ALLOW_REPLACING
-//#define OMP_CALCULATE_EXACT_ERROR
+#define OMP_ALLOW_REPLACING
+#define OMP_CALCULATE_EXACT_ERROR
+
 //#define OMP_DEBUG_OUTPUT
 //#define ONLY_OUTER_POLY
 //#define WITHOUT_TRANSMITTANCE
@@ -18,28 +21,14 @@
 static lens_element_t lenses[50];
 static int lenses_cnt = 0;
 static const float zoom = 0.0f;
-static int max_degree = 4;
+static int max_degree = 15;
+//1=allow aspheric elements, 0=use only spherical ones (without correction terms)
 static int aspheric_elements = 1;
 
-static const float eps[] = {1e-6, 1e-6, 1e-8, 1e-8, 1e-9};
-
-static inline float ap(float x, int n, float p_dist, float p_rad, int dim)
-{ // sample incoming pupil
-  return 2.0f*(x/(n-1.0f)-.5f); // just return [-1,1] arbitrarily
-}
-
-void print_coeffs(float *param, int param_cnt)
-{
-  int row = 8;
-  for(int p=0;p<param_cnt/row;p++)
-  {
-    fprintf(stderr, "p[%d] = ", p*row);
-    for(int q=0;q<row;q++)
-      if(p*row+q < param_cnt)
-        if(param[p] != 0.0f) fprintf(stderr, "%f ", param[p]);
-    fprintf(stderr, "\n");
-  }
-}
+//stop when error is smaller than eps - one threshold per equation x, y, dx, dy, transmittance
+//if zero: stop only when replacing a term doesn't decrease the error.
+//static const float eps[] = {1e-6, 1e-6, 1e-8, 1e-8, 1e-9};
+static const float eps[] = {0, 0, 0, 0, 0};
 
 int main(int argc, char *arg[])
 {
@@ -53,29 +42,11 @@ int main(int argc, char *arg[])
   const float p_dist = lens_get_thickness(lenses + lenses_cnt-1, zoom);
   const float p_rad = lenses[lenses_cnt-1].housing_radius;
 
-  int user_degree = 4;
-  max_degree = 15;
-  if(argc > 2) user_degree = atol(arg[2]);
-  if(user_degree < 1) user_degree = 1;
-  if(user_degree > 15) user_degree = 15;
-
-  int min_degree = 3;
-  if(argc > 3) min_degree = atol(arg[3]);
-  if(min_degree < 1) min_degree = 1;
-  if(min_degree > user_degree) min_degree = user_degree;
-
-  int min_degree_aperture = 1;
-  if(argc > 4) min_degree_aperture = atol(arg[4]);
-  if(min_degree_aperture < 1) min_degree_aperture = 1;
-  if(min_degree_aperture > user_degree) min_degree_aperture = user_degree;
+  if(argc > 2) max_degree = atol(arg[2]);
+  if(max_degree < 1) max_degree = 1;
 
   int max_coeffs = 10000;
-  if(argc > 5) max_coeffs = atol(arg[5]);
-
-  int pass2 = 0;
-  for(int i = 1; i < argc && pass2 == 0; i++)
-    if(atol(arg[i]) == -2)
-      pass2 = 1;
+  if(argc > 3) max_coeffs = atol(arg[3]);
 
   char fitfile[2048], apfitfile[2048];
   snprintf(fitfile, 2048, "%s.fit", lensfilename);
@@ -83,42 +54,23 @@ int main(int argc, char *arg[])
 
   // load generic 1233-coefficient degree 9 polynomial template with all zero coeffs:
   poly_system_t poly, poly_ap;
-  if(!pass2)
+  if(poly_system_read(&poly, "sorted.poly") || poly_system_read(&poly_ap, "sorted.poly"))
   {
-    if(poly_system_read(&poly, "sorted.poly") || poly_system_read(&poly_ap, "sorted.poly"))
-    {
-      fprintf(stderr, "[fit] could not read `sorted.poly' template!\n");
-      exit(1);
-    }
-  }
-  else
-  {
-    if(!poly_system_read(&poly, fitfile) && !poly_system_read(&poly_ap, apfitfile))
-      user_degree = min_degree = min_degree_aperture = max_degree = 15;
-    else
-    {
-      fprintf(stderr, "[fit] could not read fitted polynomials %s and %s!\n", fitfile, apfitfile);
-      exit(1);
-    }
+    fprintf(stderr, "[fit] could not read `sorted.poly' template!\n");
+    exit(1);
   }
   // already storing sorted:
   // poly_system_sort(&poly);
   // poly_system_sort(&poly_ap);
 
-  const int coeff_size = max(poly_system_get_coeffs(&poly, user_degree, 0),
-    poly_system_get_coeffs(&poly_ap, user_degree, 0));
+  const int coeff_size = max(poly_system_get_coeffs(&poly, max_degree, 0),
+    poly_system_get_coeffs(&poly_ap, max_degree, 0));
   float *coeff = (float *)malloc(sizeof(float)*coeff_size);
 
   const int sample_cnt = 15000;
   float *sample = (float *)malloc(sample_cnt*sizeof(float)*5);
   float *sample_in = (float *)malloc(sample_cnt*sizeof(float)*5);
-  const int oversample = 4; // only do this x coeff count many ray tracing samples
-//  #define BUCKET
-  #ifdef BUCKET
-  const int bucket_cnt = 10;
-  int bucket[bucket_cnt];
-  for(int i = 0; i < bucket_cnt; i++) bucket[i] = 0;
-  #endif
+  const int oversample = 10; // only do this x coeff count many ray tracing samples
 
   int valid = 0;
   while(1)
@@ -136,19 +88,11 @@ int main(int argc, char *arg[])
     ray_in[3] -= ray_in[1] / p_dist;
     float out[5];
     int error = evaluate(lenses, lenses_cnt, zoom, ray_in, out, aspheric_elements);
-    #ifdef BUCKET
-    int bucket_num = bucket_cnt * (out[0]*out[0]+out[1]*out[1]) / (lenses[0].housing_radius*lenses[0].housing_radius);
-    if(!error && bucket[bucket_num] <= oversample*coeff_size/bucket_cnt)
-    #else
     if(!error)
-    #endif
     {
       for(int k=0;k<5;k++) sample_in[5*valid + k] = ray_in[k];
       for(int k=0;k<5;k++) sample[valid+k*sample_cnt] = out[k];
       valid++;
-      #ifdef BUCKET
-      bucket[bucket_num]++;
-      #endif
     }
     // only need to be able to determine the dimensionality of our problem, not much more:
     //if(valid >= oversample*coeff_size) break;
@@ -160,11 +104,6 @@ int main(int argc, char *arg[])
   // ===================================================================================================
   // evaluate poly sensor -> outer pupil
   // ===================================================================================================
-  float last_error[5] = {FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX};
-  poly_system_t poly_backup = {0};
-  poly_system_copy(&poly, &poly_backup);
-
-  for(max_degree=min_degree;max_degree <= user_degree; max_degree++)
   {
     int sumCoeffs = 0;
     int maxSumCoeffs = 0;
@@ -175,14 +114,12 @@ int main(int argc, char *arg[])
     for(int j = 0; j < 5; j++)
     #endif
     {
-      //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly.poly + j, max_degree, 0);
       int coeff_cnt = degree_coeff_size;
-      const int degree_num_samples = valid;//std::min(valid, oversample*degree_coeff_size);
+      const int degree_num_samples = valid;
 
-      // optimize taylor polynomial a bit
+      //Matrix containing evaluations of all terms (rows) for each input sample (columns)
       Eigen::MatrixXd A(degree_coeff_size, degree_num_samples);
-      //#pragma omp parallel for
       for(int y = 0; y < degree_num_samples; y++)
       {
         for(int x = 0; x < degree_coeff_size; x++)
@@ -190,26 +127,24 @@ int main(int argc, char *arg[])
           poly_term_t term = poly.poly[j].term[x];
           term.coeff = 1;
           A(x,y) = poly_term_evaluate(&term, sample_in+5*y);
-          //fprintf(stdout, "%g%c", A(x,y), x<degree_coeff_size-1?',':'\n');
         }
       }
-      //cout<<A<<endl;
+      //reference output vector
       Eigen::VectorXd b(degree_num_samples);
       for(int y = 0; y < degree_num_samples; y++)
       {
         b(y) = sample[j*sample_cnt+y];
-        //fprintf(stdout, "%g\n", sample[j*sample_cnt+y]);
       }
-      //fflush(stdout);
-      //cout<<b<<endl;
 #ifdef MATCHING_PURSUIT
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
       Eigen::VectorXd residual = b;
-#ifndef OMP_CALCULATE_EXACT_ERROR
+
+      #ifndef OMP_CALCULATE_EXACT_ERROR
       Eigen::VectorXd factor(degree_coeff_size);
       for(int i = 0; i < degree_coeff_size; i++)
         factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
-#endif
+      #endif
+
       Eigen::VectorXd used(degree_coeff_size);
       int permutation[degree_coeff_size];
       for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
@@ -219,17 +154,18 @@ int main(int argc, char *arg[])
       double preverror = 1e30;
       Eigen::VectorXd prod(degree_coeff_size);
       prod.setZero();
+      #ifndef OMP_ALLOW_REPLACING
+      for(int i = 0; coeff_cnt < max_coeffs; i++)
+      #else
       for(int i = 0; coeff_cnt < degree_coeff_size; i++)
+      #endif
       {
         int maxidx = 0;
-#ifndef OMP_ALLOW_REPLACING
-        if(coeff_cnt >= max_coeffs)
-          break;
-#endif
-#ifndef OMP_CALCULATE_EXACT_ERROR
+
+        #ifndef OMP_CALCULATE_EXACT_ERROR
         prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
         prod.maxCoeff(&maxidx);
-#else
+        #else
         {
           Eigen::MatrixXd tmp(degree_num_samples, coeff_cnt+1);
           for(int k = 0; k < coeff_cnt; k++)
@@ -237,27 +173,24 @@ int main(int argc, char *arg[])
           for(int c = 0; c < degree_coeff_size; c++)
           {
             if(used(c) > 0)
-            {
               prod(c) = 1e30;
-            }
             else if(prod(c) == 0)
             {
               tmp.col(coeff_cnt) = A.row(c).transpose();
               Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
               prod(c) = (b-tmp*result).squaredNorm();
-              //fprintf(stderr, "%d %g\n", c, prod(c));
             }
           }
         }
         prod.minCoeff(&maxidx);
-#endif
+        #endif
+
         if(used(maxidx) > 0)
           break;
         used(maxidx) = 1;
 
         if(coeff_cnt < max_coeffs)
         {
-          //fprintf(stderr, "best fit: %d\n", maxidx);
           permutation[coeff_cnt] = maxidx;
           coeff_cnt++;
           //recalculate weights of terms:
@@ -303,9 +236,7 @@ int main(int argc, char *arg[])
         Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
           tmp.col(k) = A.row(permutation[k]).transpose();
-        //result = tmp.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
         result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
-        //result = tmp.colPivHouseholderQr().solve(b);
         residual = b-tmp*result;
         if(residual.squaredNorm() < eps[j] * degree_num_samples) break;
         preverror = residual.squaredNorm();
@@ -323,26 +254,20 @@ int main(int argc, char *arg[])
 
       sumCoeffs += coeff_cnt;
       maxSumCoeffs += degree_coeff_size;
-      if(error < last_error[j])
-      {
-        last_error[j] = error;
-        for(int i = 0; i < degree_coeff_size; i++) coeff[i] = result[i];
-        poly_set_coeffs(poly.poly + j, max_degree, coeff);
-        poly_destroy(poly_backup.poly+j);
-        poly_copy(poly.poly+j, poly_backup.poly+j);
-      }
+
+      for(int i = 0; i < degree_coeff_size; i++) coeff[i] = result[i];
+      poly_set_coeffs(poly.poly + j, max_degree, coeff);
+
       fprintf(stderr, "%s: %.4f ", outvname[j], error);
       errorSum += error;
     }
 
-    if(pass2) fprintf(stderr, "\n%d coeffs, fitting error %g\n", sumCoeffs, errorSum);
-    else fprintf(stderr, "\ndegree %d has %d/%d coeffs, fitting error %g\n", max_degree, sumCoeffs, maxSumCoeffs, errorSum);
+    fprintf(stderr, "\ndegree %d has %d/%d coeffs, fitting error %g\n", max_degree, sumCoeffs, maxSumCoeffs, errorSum);
   }
 
   // write optimised poly
-  poly_system_simplify(&poly_backup);
-  fprintf(stderr, "output poly has %d coeffs.\n", poly_system_get_coeffs(&poly_backup, user_degree, 0));
-  poly_system_write(&poly_backup, fitfile);
+  fprintf(stderr, "output poly has %d coeffs.\n", poly_system_get_coeffs(&poly, max_degree, 0));
+  poly_system_write(&poly, fitfile);
 
   // ===================================================================================================
   // evaluate_aperture poly sensor -> aperture
@@ -359,10 +284,7 @@ int main(int argc, char *arg[])
       sample[i+k*sample_cnt] = out[k];
   }
   fprintf(stderr, "[ sensor->aperture ] optimising %d coeffs by %d/%d valid sample points\n", coeff_size, valid, sample_cnt);
-  for(int i = 0; i < 5; i++) last_error[i] = FLT_MAX;
-  poly_system_copy(&poly_ap, &poly_backup);
 
-  for(max_degree=min_degree_aperture;max_degree <= user_degree; max_degree++)
   {
     int sumCoeffs = 0;
     int maxSumCoeffs = 0;
@@ -377,14 +299,12 @@ int main(int argc, char *arg[])
     #endif
     #endif
     {
-      //const int degree_coeff_size = poly_system_get_coeffs(&poly, max_degree, 0);
       const int degree_coeff_size = poly_get_coeffs(poly_ap.poly + j, max_degree, 0);
       int coeff_cnt = degree_coeff_size;
-      const int degree_num_samples = valid;//std::min(valid, oversample*degree_coeff_size);
+      const int degree_num_samples = valid;
 
-      // optimize taylor polynomial a bit
+      //Matrix containing evaluations of all terms (rows) for each input sample (columns)
       Eigen::MatrixXd A(degree_coeff_size, degree_num_samples);
-      //#pragma omp parallel for
       for(int y = 0; y < degree_num_samples; y++)
       {
         for(int x = 0; x < degree_coeff_size; x++)
@@ -392,25 +312,24 @@ int main(int argc, char *arg[])
           poly_term_t term = poly_ap.poly[j].term[x];
           term.coeff = 1;
           A(x,y) = poly_term_evaluate(&term, sample_in+5*y);
-          //fprintf(stdout, "%g%c", A(x,y), x<degree_coeff_size-1?',':'\n');
         }
       }
-      //cout<<A<<endl;
+      //reference output vector
       Eigen::VectorXd b(degree_num_samples);
       for(int y = 0; y < degree_num_samples; y++)
       {
         b(y) = sample[j*sample_cnt+y];
-        //fprintf(stdout, "%g\n", sample[j*sample_cnt+y]);
       }
-      //cout<<b<<endl;
 #ifdef MATCHING_PURSUIT
       Eigen::VectorXd result = Eigen::ArrayXd::Zero(degree_coeff_size);
       Eigen::VectorXd residual = b;
-#ifndef OMP_CALCULATE_EXACT_ERROR
+
+      #ifndef OMP_CALCULATE_EXACT_ERROR
       Eigen::VectorXd factor(degree_coeff_size);
       for(int i = 0; i < degree_coeff_size; i++)
         factor(i) = 1 / (A.row(i).norm() * (poly_term_get_degree(poly.poly[j].term+i)+1.0));
-#endif
+      #endif
+
       Eigen::VectorXd used(degree_coeff_size);
       int permutation[degree_coeff_size];
       for(int i = 0; i < degree_coeff_size; i++) permutation[i] = i;
@@ -420,17 +339,18 @@ int main(int argc, char *arg[])
       double preverror = 1e30;
       Eigen::VectorXd prod(degree_coeff_size);
       prod.setZero();
+      #ifndef OMP_ALLOW_REPLACING
+      for(int i = 0; coeff_cnt < max_coeffs; i++)
+      #else
       for(int i = 0; coeff_cnt < degree_coeff_size; i++)
+      #endif
       {
         int maxidx = 0;
-#ifndef OMP_ALLOW_REPLACING
-        if(coeff_cnt >= max_coeffs)
-          break;
-#endif
-#ifndef OMP_CALCULATE_EXACT_ERROR
+
+        #ifndef OMP_CALCULATE_EXACT_ERROR
         prod = (Eigen::ArrayXd(A * residual) * Eigen::ArrayXd(factor) * (1-Eigen::ArrayXd(used))).abs();
         prod.maxCoeff(&maxidx);
-#else
+        #else
         {
           Eigen::MatrixXd tmp(degree_num_samples, coeff_cnt+1);
           for(int k = 0; k < coeff_cnt; k++)
@@ -438,27 +358,24 @@ int main(int argc, char *arg[])
           for(int c = 0; c < degree_coeff_size; c++)
           {
             if(used(c) > 0)
-            {
               prod(c) = 1e30;
-            }
             else if(prod(c) == 0)
             {
               tmp.col(coeff_cnt) = A.row(c).transpose();
               Eigen::VectorXd result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
               prod(c) = (b-tmp*result).squaredNorm();
-              //fprintf(stderr, "%d %g\n", c, prod(c));
             }
           }
         }
         prod.minCoeff(&maxidx);
-#endif
+        #endif
+
         if(used(maxidx) > 0)
           break;
         used(maxidx) = 1;
 
         if(coeff_cnt < max_coeffs)
         {
-          //fprintf(stderr, "best fit: %d\n", maxidx);
           permutation[coeff_cnt] = maxidx;
           coeff_cnt++;
           //recalculate weights of terms:
@@ -504,9 +421,7 @@ int main(int argc, char *arg[])
         Eigen::MatrixXd tmp = Eigen::ArrayXXd::Zero(degree_num_samples, coeff_cnt);
         for(int k = 0; k < coeff_cnt; k++)
           tmp.col(k) = A.row(permutation[k]).transpose();
-        //result = tmp.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
         result = (tmp.transpose()*tmp).ldlt().solve(tmp.transpose()*b);
-        //result = tmp.colPivHouseholderQr().solve(b);
         residual = b-tmp*result;
         if(residual.squaredNorm() < eps[j] * degree_num_samples) break;
         preverror = residual.squaredNorm();
@@ -524,24 +439,17 @@ int main(int argc, char *arg[])
 
       sumCoeffs += coeff_cnt;
       maxSumCoeffs += degree_coeff_size;
-      if(error < last_error[j])
-      {
-        last_error[j] = error;
-        for(int i = 0; i < degree_coeff_size; i++) coeff[i] = result[i];
-        poly_set_coeffs(poly_ap.poly + j, max_degree, coeff);
-        poly_destroy(poly_backup.poly+j);
-        poly_copy(poly_ap.poly+j, poly_backup.poly+j);
-      }
+
+      for(int i = 0; i < degree_coeff_size; i++) coeff[i] = result[i];
+      poly_set_coeffs(poly_ap.poly + j, max_degree, coeff);
+
       fprintf(stderr, "%s: %.4f ", outvname[j], error);
       errorSum += error;
     }
-    if(pass2) fprintf(stderr, "\n%d coeffs, fitting error %g\n", sumCoeffs, errorSum);
-    else fprintf(stderr, "\ndegree %d has %d/%d coeffs, fitting error %g\n", max_degree, sumCoeffs, maxSumCoeffs, errorSum);
+    fprintf(stderr, "\ndegree %d has %d/%d coeffs, fitting error %g\n", max_degree, sumCoeffs, maxSumCoeffs, errorSum);
   }
 
-  poly_system_simplify(&poly_backup);
-  // TODO: this totally doesn't throw away useless coeffs, the fitter will make ineffective ones != 0!
-  fprintf(stderr, "output aperture poly has %d coeffs.\n", poly_system_get_coeffs(&poly_backup, user_degree, 0));
-  poly_system_write(&poly_backup, apfitfile);
+  fprintf(stderr, "output aperture poly has %d coeffs.\n", poly_system_get_coeffs(&poly_ap, max_degree, 0));
+  poly_system_write(&poly_ap, apfitfile);
   exit(0);
 }

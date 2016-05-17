@@ -1,10 +1,7 @@
-ext/levmar-2.6/*.o
-ext/levmar-2.6/*.a
 fit
 view
 gencode
 fresnel
-simplify
 printpoly
 genpoly
 sample-plot

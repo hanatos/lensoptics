@@ -2,6 +2,20 @@
 #include <string.h>
 #include "poly.h"
 
+inline unsigned int numterms(unsigned int degree, unsigned int num_variables)
+{
+  float facn = 1, facd = 1, facnd = 1;
+  for(int i = 2; i < degree + num_variables + 1; i++)
+  {
+    facnd *= i;
+    if(i == degree)
+      facd = facnd;
+    if(i == num_variables)
+      facn = facnd;
+  }
+  return floor(facnd / (facn * facd) + 0.5f);
+}
+
 int main(int argc, char *arg[])
 {
   if(argc < 3)
@@ -15,36 +29,31 @@ int main(int argc, char *arg[])
   // ... {degree, degree, ...}
   //this is essentially the degree-bit representation of a number with
   //poly_num_vars digits (with base degree)
-  int numTerms = (int)powf(1.0f+degree, 1.0f*poly_num_vars);
-  fprintf(stderr, "polynomial of degree %d has up to %d terms\n", degree, numTerms);
-  //int *expMatrix = new int[numTerms*poly_num_vars];
+  int numTerms = numterms(degree, poly_num_vars);
   poly_term_t *expMatrix = malloc((numTerms+1)*poly_num_vars*sizeof(poly_term_t));
-  for(int i = 0; i <= numTerms; i++)
+
+  int validterms = 0;
+  for(int i = 0; validterms <= numTerms; i++)
   {
-    expMatrix[i].coeff = 0.0f;
+    expMatrix[validterms].coeff = 0.0f;
     int tmp = i;
     for(int j = poly_num_vars-1; j >= 0; j--)
     {
-      expMatrix[i].exp[j] = tmp%(degree+1);
+      expMatrix[validterms].exp[j] = tmp%(degree+1);
       tmp /= (degree+1);
     }
-  }
-  int validTerms = 0;
-  for(int i=0;i<numTerms;i++)
-  {
     //remove terms with sum exp > degree
-    int *exp = expMatrix[i].exp;
     int currdegree = 0;
-    for(int i = 0; i < poly_num_vars; i++) currdegree += exp[i];
+    for(int j = 0; j < poly_num_vars; j++) currdegree += expMatrix[validterms].exp[j];
     if(currdegree <= degree)
-      validTerms++;
+      validterms++;
   }
-  for(int i=0;i<poly_num_vars;i++)
+  for(int i = 0; i < poly_num_vars; i++)
   {
-    s.poly[i].num_terms = validTerms;
-    s.poly[i].term = (poly_term_t *)malloc(sizeof(poly_term_t)*validTerms);
+    s.poly[i].num_terms = numTerms;
+    s.poly[i].term = (poly_term_t *)malloc(sizeof(poly_term_t)*numTerms);
     int termsWritten = 0;
-    for(int j=0;j<numTerms;j++)
+    for(int j = 0;j < numTerms; j++)
     {
       int *exp = expMatrix[j].exp;
       int currdegree = 0;
@@ -53,7 +62,7 @@ int main(int argc, char *arg[])
         memcpy(s.poly[i].term+(termsWritten++), expMatrix+j, sizeof(poly_term_t));
     }
   }
-  fprintf(stderr, "polynomial of degree %d has %d terms\n", degree, validTerms);
+  fprintf(stderr, "polynomial of degree %d has %d terms\n", degree, numTerms);
 
   free(expMatrix);
   poly_system_sort(&s);
