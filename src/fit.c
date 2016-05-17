@@ -260,6 +260,8 @@ int main(int argc, char *arg[])
           //fprintf(stderr, "best fit: %d\n", maxidx);
           permutation[coeff_cnt] = maxidx;
           coeff_cnt++;
+          //recalculate weights of terms:
+          prod.setZero();
         }
         else
         {
@@ -459,6 +461,8 @@ int main(int argc, char *arg[])
           //fprintf(stderr, "best fit: %d\n", maxidx);
           permutation[coeff_cnt] = maxidx;
           coeff_cnt++;
+          //recalculate weights of terms:
+          prod.setZero();
         }
         else
         {
