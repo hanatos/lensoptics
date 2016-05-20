@@ -355,7 +355,6 @@ expose(GtkWidget *widget, GdkEventExpose *event, gpointer user_data)
       poly_system_evaluate(&poly, in, out, 15);
 
       // evaluate error poly vs ray traced:
-      // TODO measure in pixels on a full frame camera
       const float px_ratio = 2000.0/36.0f; // 5k pixels for 36mm film back (width)
       // const float px_err = sqrtf((out[0]-outrt[0])*(out[0]-outrt[0]) + (out[1]-outrt[1])*(out[1]-outrt[1]))*px_ratio;
       // fprintf(stderr, "error ray %d: %.02f pixels (%f %f)\n", k, px_err, (out[0] - outrt[0])*px_ratio, (out[1] - outrt[1])*px_ratio);
