@@ -24,7 +24,7 @@ int main(int argc, char *arg[])
   const float p_rad = lenses[lenses_cnt-1].housing_radius;
   const int sample_cnt = 50000;
   FILE *f = fopen("fresnel.dat", "wb");
-  //XXX better find a way to set color-range in gnuplot than to add two points
+  // stupid way to set color-range in gnuplot using two points
   fprintf(f, "%g, %g, %g, 0, 0, 1\n", 0.f, 0.f, 1.f);
   fprintf(f, "%g, %g, %g, 0, 0, 0\n", 0.f, 0.f, 0.f);
 #define profile_cnt 32

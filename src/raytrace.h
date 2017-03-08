@@ -421,7 +421,6 @@ static inline int evaluate_aperture_reverse(const lens_element_t *lenses, const 
   float intensity = 1.0f;
 
   sphereToCs(in, in + 2, pos, dir, 0, lenses[0].lens_radius);
-  // XXX this needs fixing:
   for(int i = 0; i < 2; i++) dir[i] = -dir[i];
 
   float distsum = 0;
